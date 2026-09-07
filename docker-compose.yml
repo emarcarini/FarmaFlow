@@ -33,6 +33,9 @@ services:
     depends_on:
       - mysql
       - redis
+    networks:
+      - default
+      - dokploy-network
 
   # 2. Banco de Dados MySQL 8.0
   mysql:
@@ -47,6 +50,8 @@ services:
       - mysql_data:/var/lib/mysql
     expose:
       - 3306
+    networks:
+      - default
 
   # 3. Redis para Filas, Cache e Idempotência
   redis:
@@ -56,6 +61,8 @@ services:
       - redis_data:/data
     expose:
       - 6379
+    networks:
+      - default
 
   # 4. Evolution API (WhatsApp Engine)
   evolution-api:
@@ -73,9 +80,16 @@ services:
       - evolution_instances:/evolution/instances
     depends_on:
       - redis
+    networks:
+      - default
+      - dokploy-network
 
 volumes:
   storage_data:
   mysql_data:
   redis_data:
   evolution_instances:
+
+networks:
+  dokploy-network:
+    external: true
