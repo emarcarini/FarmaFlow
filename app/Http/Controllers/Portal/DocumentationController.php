@@ -80,7 +80,7 @@ REDIS_PORT=6379
 # Evolution API v2 (WhatsApp Engine)
 EVOLUTION_API_URL=http://evolution-api:8080
 EVOLUTION_API_KEY=farmaflow_evolution_key_123
-EVOLUTION_INSTANCE=comercial
+EVOLUTION_INSTANCE=farmaflow
 
 # Google Gemini AI
 GEMINI_API_KEY=AIzaSySuaChaveGoogleGeminiAqui
@@ -99,9 +99,8 @@ docker compose up -d --build
 
 O contêiner `app` executa automaticamente as migrações, seeds de demonstração e sincronização de credenciais na inicialização via `entrypoint.sh`.
 
-::: info CONTAS DE DEMONSTRAÇÃO
-- **Representante:** `carlos@comercial.com.br` / `senha123`
-- **Administrador:** `admin@comercial.com.br` / `senha123`
+::: info CONTA DE ACESSO
+- **Administrador & Representante:** `admin@comercial.com.br` / `senha123` (Emmanuel Marcarini)
 :::
 MD
             ],
@@ -233,7 +232,7 @@ O prompt do sistema é injetado dinamicamente com as seguintes seções:
 ### Identificação de Tentativa de Burlar Preço
 > **Cliente:** *"O representante do concorrente me fez por R$ 5,00 a unidade. Faz igual?"*
 >
-> **FarmaFlow IA:** *"Entendo perfeitamente, Celso! A nossa tabela autorizada para esse lote é de R$ 6,80 para pedidos acima de 50 caixas. Posso registrar uma solicitação especial de alçada de desconto para o Carlos (nosso representante) aprovar para você. Quer que eu encaminhe?"*
+> **FarmaFlow IA:** *"Entendo perfeitamente, Celso! A nossa tabela autorizada para esse lote é de R$ 6,80 para pedidos acima de 50 caixas. Posso registrar uma solicitação especial de alçada de desconto para o Emmanuel (nosso representante) aprovar para você. Quer que eu encaminhe?"*
 MD
             ],
             'crm-rfm' => [
@@ -367,7 +366,7 @@ O FarmaFlow não substitui o representante comercial — ele atua como seu **cop
 
 A IA passa a conversa para o modo humano nos seguintes casos:
 
-1. **Pedido Explícito:** O cliente escreve expressões como *"quero falar com um humano"*, *"cadê o Carlos?"* ou *"me liga"*.
+1. **Pedido Explícito:** O cliente escreve expressões como *"quero falar com um humano"*, *"cadê o Emmanuel?"* ou *"me liga"*.
 2. **Exceção Clínica:** Perguntas sobre sintomas graves, posologias veterinárias ou dosagens controladas.
 3. **Negociação Travada:** Três tentativas consecutivas de desconto fora das tabelas permitidas.
 

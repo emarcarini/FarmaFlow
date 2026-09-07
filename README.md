@@ -53,8 +53,9 @@ php artisan serve
 ---
 
 ## 🔑 Credenciais de Acesso
-- **Representante:** `carlos@comercial.com.br` | Senha: `senha123`
-- **Administrador:** `admin@comercial.com.br` | Senha: `senha123`
+- **Administrador & Representante:** `admin@comercial.com.br` | Senha: `senha123` (Emmanuel Marcarini)
+- **WhatsApp Atendente (Bot):** `55 28 99915-8412`
+- **Instância Evolution API:** `farmaflow`
 
 ---
 

@@ -7,7 +7,6 @@ use App\Models\Representative;
 use App\Services\WhatsApp\EvolutionApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class WhatsAppConnectionController extends Controller
 {
@@ -19,74 +18,24 @@ class WhatsAppConnectionController extends Controller
     }
 
     /**
-     * Resolver o representante alvo com base no usuário logado ou parâmetro (para admin).
+     * Obter o representante titular (Emmanuel Marcarini).
      */
-     protected function resolveRepresentative(Request $request): ?Representative
-     {
-         $user = Auth::user();
-
-         if ($user->isAdmin()) {
-             // 1. Se informou explicitamente o representante pelo ID
-             if ($request->filled('representative_id')) {
-                 $rep = Representative::find($request->input('representative_id'));
-                 if ($rep) return $rep;
-             }
-
-             // 2. Se informou pelo nome da instância
-             if ($request->filled('instance')) {
-                 $rep = Representative::where('whatsapp_instance', $request->input('instance'))->first();
-                 if ($rep) return $rep;
-             }
-
-             // 3. Prioriza o representante com WhatsApp já conectado ou com instância configurada
-             return Representative::where('whatsapp_status', 'open')->first()
-                 ?? Representative::whereNotNull('whatsapp_instance')->first()
-                 ?? Representative::where('is_active', true)->first();
-         }
-
-         return $user->representative;
-     }
+    protected function getTargetRepresentative(): ?Representative
+    {
+        return Representative::where('whatsapp_instance', 'farmaflow')->first()
+            ?? Representative::where('code', 'FARMAFLOW')->first()
+            ?? Representative::first();
+    }
 
     /**
      * Retorna o status real da conexão do WhatsApp via Evolution API.
      */
     public function status(Request $request): JsonResponse
     {
-        // 1. Sincroniza em tempo real com as instâncias existentes na Evolution API
-        $liveInstances = $this->evolutionApi->fetchInstances();
-        $connectedInstances = [];
+        $rep = $this->getTargetRepresentative();
+        $instanceName = $rep?->whatsapp_instance ?: config('services.evolution.instance', 'farmaflow');
 
-        foreach ($liveInstances as $inst) {
-            $name = is_array($inst) ? ($inst['name'] ?? ($inst['instance']['instanceName'] ?? null)) : null;
-            $connStatus = is_array($inst) ? ($inst['connectionStatus'] ?? ($inst['instance']['state'] ?? ($inst['state'] ?? 'close'))) : 'close';
-
-            if ($name) {
-                $isOpen = ($connStatus === 'open');
-                if ($isOpen) {
-                    $connectedInstances[] = $name;
-                }
-
-                $matchingRep = Representative::where('whatsapp_instance', $name)->first();
-                if ($matchingRep) {
-                    $matchingRep->update([
-                        'whatsapp_status' => $isOpen ? 'open' : 'disconnected',
-                        'whatsapp_connected_at' => $isOpen ? ($matchingRep->whatsapp_connected_at ?? now()) : $matchingRep->whatsapp_connected_at,
-                    ]);
-                }
-            }
-        }
-
-        // 2. Se o usuário não especificou representative_id e existe um representante conectado, prioriza ele
-        if (!$request->filled('representative_id') && count($connectedInstances) > 0) {
-            $firstConnectedRep = Representative::whereIn('whatsapp_instance', $connectedInstances)->first();
-            if ($firstConnectedRep) {
-                $request->merge(['representative_id' => $firstConnectedRep->id]);
-            }
-        }
-
-        $rep = $this->resolveRepresentative($request);
-        $this->evolutionApi->forRepresentative($rep);
-
+        $this->evolutionApi->setInstance($instanceName);
         $status = $this->evolutionApi->getConnectionState();
 
         // Se o status for open, atualiza o timestamp no banco
@@ -101,9 +50,12 @@ class WhatsAppConnectionController extends Controller
             ]);
         }
 
-        $status['representative_name'] = $rep?->name ?? 'Geral';
+        $liveInstances = $this->evolutionApi->fetchInstances();
+
+        $status['representative_name'] = $rep?->name ?? 'Emmanuel Marcarini';
         $status['representative_id'] = $rep?->id;
-        $status['all_representatives'] = Representative::select('id', 'name', 'code', 'whatsapp_instance', 'whatsapp_status')->get();
+        $status['atendente_phone'] = $rep?->whatsapp_phone ?? '5528999158412';
+        $status['instance'] = $instanceName;
         $status['live_instances'] = $liveInstances;
 
         return response()->json($status);
@@ -114,11 +66,16 @@ class WhatsAppConnectionController extends Controller
      */
     public function getQrCode(Request $request): JsonResponse
     {
-        $rep = $this->resolveRepresentative($request);
-        $this->evolutionApi->forRepresentative($rep);
+        $rep = $this->getTargetRepresentative();
+        $instanceName = $rep?->whatsapp_instance ?: config('services.evolution.instance', 'farmaflow');
 
-        $result = $this->evolutionApi->getConnectQrCode();
-        $result['representative_name'] = $rep?->name ?? 'Geral';
+        $this->evolutionApi->setInstance($instanceName);
+
+        $phone = $rep?->whatsapp_phone ?? '5528999158412';
+        $result = $this->evolutionApi->getConnectQrCode($phone);
+        $result['representative_name'] = $rep?->name ?? 'Emmanuel Marcarini';
+        $result['atendente_phone'] = $phone;
+        $result['instance'] = $instanceName;
 
         return response()->json($result);
     }
@@ -128,9 +85,10 @@ class WhatsAppConnectionController extends Controller
      */
     public function disconnect(Request $request): JsonResponse
     {
-        $rep = $this->resolveRepresentative($request);
-        $this->evolutionApi->forRepresentative($rep);
+        $rep = $this->getTargetRepresentative();
+        $instanceName = $rep?->whatsapp_instance ?: config('services.evolution.instance', 'farmaflow');
 
+        $this->evolutionApi->setInstance($instanceName);
         $result = $this->evolutionApi->logoutInstance();
 
         if ($rep) {
@@ -143,20 +101,22 @@ class WhatsAppConnectionController extends Controller
     }
 
     /**
-     * Sincroniza webhooks para todas as instâncias da Evolution API.
+     * Sincroniza webhooks para a instância farmaflow na Evolution API.
      */
     public function syncWebhooks(): JsonResponse
     {
-        $results = $this->evolutionApi->syncAllInstancesWebhooks();
+        $this->evolutionApi->setInstance('farmaflow');
+        $result = $this->evolutionApi->setWebhookForInstance();
+
         return response()->json([
             'success' => true,
-            'message' => 'Webhooks sincronizados com sucesso em todas as instâncias.',
-            'results' => $results,
+            'message' => 'Webhooks sincronizados com sucesso na instância farmaflow.',
+            'result' => $result,
         ]);
     }
 
     /**
-     * Deletar uma instância órfã ou desconectada na Evolution API.
+     * Deletar uma instância órfã ou antiga na Evolution API.
      */
     public function deleteOrphanInstance(Request $request): JsonResponse
     {

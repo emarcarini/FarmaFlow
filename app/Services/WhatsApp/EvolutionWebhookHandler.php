@@ -33,17 +33,15 @@ class EvolutionWebhookHandler
             $data = $data[0];
         }
 
-        $instanceName = $payload['instance'] ?? ($data['instance'] ?? ($payload['owner'] ?? null));
-        $targetRep = null;
-        if ($instanceName) {
-            $targetRep = Representative::where('whatsapp_instance', $instanceName)
-                ->orWhere('code', $instanceName)
-                ->orWhere('id', str_replace('rep_', '', $instanceName))
-                ->first();
+        $instanceName = $payload['instance'] ?? ($data['instance'] ?? ($payload['owner'] ?? config('services.evolution.instance', 'farmaflow')));
+        if (empty($instanceName)) {
+            $instanceName = 'farmaflow';
         }
-        if (!$targetRep) {
-            $targetRep = Representative::where('is_active', true)->first();
-        }
+
+        $targetRep = Representative::where('whatsapp_instance', 'farmaflow')
+            ->orWhere('whatsapp_instance', $instanceName)
+            ->orWhere('code', 'FARMAFLOW')
+            ->first() ?? Representative::first();
 
         // Se o representante ainda não tem instância gravada e recebemos uma, atualiza
         if ($targetRep && empty($targetRep->whatsapp_instance) && $instanceName) {
@@ -51,11 +49,7 @@ class EvolutionWebhookHandler
         }
 
         // Configura a instância correta no serviço WhatsApp
-        if ($instanceName) {
-            $this->whatsappService->setInstance($instanceName);
-        } elseif ($targetRep) {
-            $this->whatsappService->forRepresentative($targetRep);
-        }
+        $this->whatsappService->setInstance($instanceName);
 
         // Se for evento de conexão (CONNECTION_UPDATE / QRCODE_UPDATED), registra e retorna
         if (str_contains($event, 'connection') || str_contains($event, 'qrcode')) {

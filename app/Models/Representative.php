@@ -43,11 +43,9 @@ class Representative extends Model
      */
     public function getEffectiveWhatsAppInstance(): string
     {
-        if (!empty($this->whatsapp_instance)) {
-            return $this->whatsapp_instance;
-        }
-
-        return 'rep_' . ($this->code ? strtolower(str_replace(['-', ' '], '_', $this->code)) : $this->id);
+        return !empty($this->whatsapp_instance)
+            ? $this->whatsapp_instance
+            : config('services.evolution.instance', 'farmaflow');
     }
 
     public function user(): BelongsTo

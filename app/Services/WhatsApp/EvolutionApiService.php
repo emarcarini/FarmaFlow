@@ -20,7 +20,7 @@ class EvolutionApiService
     {
         $this->baseUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL', 'http://evolution-api:8080')), '/');
         $this->apiKey = config('services.evolution.key', env('EVOLUTION_API_KEY', 'farmaflow_evolution_key_123'));
-        $this->instance = config('services.evolution.instance') ?: (env('EVOLUTION_INSTANCE') ?: '');
+        $this->instance = config('services.evolution.instance') ?: (env('EVOLUTION_INSTANCE') ?: 'farmaflow');
     }
 
     /**
@@ -39,6 +39,8 @@ class EvolutionApiService
     {
         if ($representative) {
             $this->instance = $representative->getEffectiveWhatsAppInstance();
+        } else {
+            $this->instance = config('services.evolution.instance') ?: (env('EVOLUTION_INSTANCE') ?: 'farmaflow');
         }
         return $this;
     }
@@ -389,10 +391,16 @@ class EvolutionApiService
     /**
      * Obter o QR Code da Evolution API para pareamento.
      */
-    public function getConnectQrCode(): array
+    public function getConnectQrCode(?string $phoneNumber = null): array
     {
-        // 1. Tenta obter o QR code diretamente
+        // 1. Tenta obter o QR code diretamente (com número de pareamento se fornecido)
         $url = "{$this->baseUrl}/instance/connect/{$this->instance}";
+        if ($phoneNumber) {
+            $cleanPhone = preg_replace('/\D+/', '', $phoneNumber);
+            if (!empty($cleanPhone)) {
+                $url .= "?number={$cleanPhone}";
+            }
+        }
 
         try {
             $response = Http::withHeaders([

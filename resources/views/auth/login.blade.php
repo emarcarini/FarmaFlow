@@ -50,7 +50,7 @@
                     <label for="email" class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">E-mail de Acesso</label>
                     <div class="relative">
                         <i data-lucide="mail" class="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                        <input type="email" name="email" id="email" value="{{ old('email', 'carlos@comercial.com.br') }}" required autofocus
+                        <input type="email" name="email" id="email" value="{{ old('email', 'admin@comercial.com.br') }}" required autofocus
                             placeholder="seu.email@empresa.com.br"
                             class="w-full pl-10 pr-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm transition-all">
                     </div>
@@ -86,23 +86,16 @@
             <!-- Quick Demo Credential Selectors -->
             <div class="mt-8 pt-6 border-t border-slate-800/80">
                 <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center mb-3">
-                    Acesso Rápido de Demonstração
+                    Acesso Rápido
                 </p>
-                <div class="grid grid-cols-3 gap-2 text-xs">
+                <div class="max-w-xs mx-auto text-xs">
                     <button type="button" onclick="fillCreds('admin@comercial.com.br', 'senha123')"
-                        class="p-2 rounded-xl bg-slate-950/60 hover:bg-amber-600/20 border border-slate-800 hover:border-amber-500/40 text-left transition-all">
-                        <p class="font-bold text-slate-200 text-[11px] truncate">Admin</p>
-                        <p class="text-[9px] text-amber-400 font-medium">Gestão Geral</p>
-                    </button>
-                    <button type="button" onclick="fillCreds('carlos@comercial.com.br', 'senha123')"
-                        class="p-2 rounded-xl bg-slate-950/60 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/40 text-left transition-all">
-                        <p class="font-bold text-slate-200 text-[11px] truncate">Carlos</p>
-                        <p class="text-[9px] text-indigo-400 font-medium">Rep #1</p>
-                    </button>
-                    <button type="button" onclick="fillCreds('juliana@comercial.com.br', 'senha123')"
-                        class="p-2 rounded-xl bg-slate-950/60 hover:bg-cyan-600/20 border border-slate-800 hover:border-cyan-500/40 text-left transition-all">
-                        <p class="font-bold text-slate-200 text-[11px] truncate">Juliana</p>
-                        <p class="text-[9px] text-cyan-400 font-medium">Rep #2</p>
+                        class="w-full p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/40 text-left transition-all flex items-center justify-between">
+                        <div>
+                            <p class="font-bold text-slate-200 text-xs truncate">Emmanuel Marcarini</p>
+                            <p class="text-[10px] text-indigo-400 font-medium">Administrador & Representante</p>
+                        </div>
+                        <span class="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">Preencher</span>
                     </button>
                 </div>
             </div>

@@ -335,21 +335,25 @@
 
             <!-- Status Info Card -->
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2.5 text-xs">
-                <div class="flex justify-between items-center gap-2">
-                    <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">Titular / Representante:</span>
-                    <div id="modal-rep-select-container" class="hidden">
-                        <select id="modal-rep-selector" onchange="switchModalRepresentative(this.value)" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
-                        </select>
-                    </div>
-                    <span id="modal-wa-rep-name" class="font-bold text-slate-800 dark:text-slate-200 truncate">Carregando...</span>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 dark:text-slate-400">Titular & Administrador:</span>
+                    <span id="modal-wa-rep-name" class="font-bold text-slate-800 dark:text-slate-200">Emmanuel Marcarini</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 dark:text-slate-400">Telefone Admin:</span>
+                    <span class="font-mono font-semibold text-slate-700 dark:text-slate-300">55 28 99943-9677</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500 dark:text-slate-400">WhatsApp do Atendente (Bot):</span>
+                    <span id="modal-wa-atendente-phone" class="font-mono font-bold text-emerald-600 dark:text-emerald-400">55 28 99915-8412</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-slate-500 dark:text-slate-400">Status da Instância:</span>
                     <span id="modal-wa-state" class="font-bold font-mono text-amber-600 dark:text-amber-400">Verificando...</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-slate-500 dark:text-slate-400">Instância Dedicada:</span>
-                    <span id="modal-wa-instance" class="font-mono text-indigo-600 dark:text-indigo-300 font-semibold">---</span>
+                    <span class="text-slate-500 dark:text-slate-400">Instância Evolution API:</span>
+                    <span id="modal-wa-instance" class="font-mono text-indigo-600 dark:text-indigo-300 font-semibold">farmaflow</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-slate-500 dark:text-slate-400">Servidor Evolution:</span>
@@ -419,15 +423,10 @@
             updateThemeUI();
         }
 
-        // Funções de Gestão de Conexão WhatsApp Real e Multi-Representante Dinâmico
-        let currentSelectedRepId = null;
-
-        async function checkWhatsAppStatus(repId = null) {
-            if (repId) currentSelectedRepId = repId;
+        // Funções de Gestão de Conexão WhatsApp da Instância Única FarmaFlow
+        async function checkWhatsAppStatus() {
             try {
-                const url = new URL('{{ route("portal.whatsapp.status") }}', window.location.origin);
-                if (currentSelectedRepId) url.searchParams.set('representative_id', currentSelectedRepId);
-                const res = await fetch(url);
+                const res = await fetch('{{ route("portal.whatsapp.status") }}');
                 const data = await res.json();
 
                 const badgeDot = document.getElementById('whatsapp-header-dot');
@@ -437,38 +436,12 @@
                 const modalInstance = document.getElementById('modal-wa-instance');
                 const modalServer = document.getElementById('modal-wa-server');
                 const modalRepName = document.getElementById('modal-wa-rep-name');
+                const modalPhone = document.getElementById('modal-wa-atendente-phone');
                 const disconnectBtn = document.getElementById('modal-disconnect-btn');
 
-                // Se houver lista de representantes (Admin logado), popula o dropdown
-                if (data.all_representatives && data.all_representatives.length > 0) {
-                    const selectCont = document.getElementById('modal-rep-select-container');
-                    const select = document.getElementById('modal-rep-selector');
-                    if (select && selectCont) {
-                        // Só recria as opções se o select estiver vazio
-                        if (select.children.length === 0) {
-                            select.innerHTML = '';
-                            data.all_representatives.forEach(r => {
-                                const opt = document.createElement('option');
-                                opt.value = r.id;
-                                const statusLabel = r.whatsapp_status === 'open' ? '● Conectado' : '○ Desconectado';
-                                opt.innerText = `${r.name} (${statusLabel})`;
-                                if (r.id === data.representative_id) opt.selected = true;
-                                select.appendChild(opt);
-                            });
-                        } else if (data.representative_id) {
-                            select.value = data.representative_id;
-                        }
-                        selectCont.classList.remove('hidden');
-                        if (modalRepName) modalRepName.classList.add('hidden');
-                    }
-                } else {
-                    if (modalRepName) {
-                        modalRepName.innerText = data.representative_name || '{{ auth()->user()->name }}';
-                        modalRepName.classList.remove('hidden');
-                    }
-                }
-
-                if (modalInstance) modalInstance.innerText = data.instance || '---';
+                if (modalRepName) modalRepName.innerText = data.representative_name || 'Emmanuel Marcarini';
+                if (modalPhone && data.atendente_phone) modalPhone.innerText = data.atendente_phone;
+                if (modalInstance) modalInstance.innerText = data.instance || 'farmaflow';
                 if (modalServer) modalServer.innerText = data.server_url || 'http://evolution-api:8080';
 
                 if (data.connected && data.state === 'open') {
@@ -509,17 +482,17 @@
                     if (disconnectBtn) disconnectBtn.classList.add('hidden');
                 }
 
-                // Renderiza instâncias órfãs detectadas na Evolution API para limpeza fácil
+                // Renderiza instâncias antigas/órfãs detectadas na Evolution API para limpeza com 1 clique
                 const orphanBox = document.getElementById('modal-orphan-instances');
-                if (orphanBox && data.live_instances && data.all_representatives) {
-                    const repInstances = data.all_representatives.map(r => r.whatsapp_instance);
+                if (orphanBox && data.live_instances) {
+                    const currentInst = data.instance || 'farmaflow';
                     const orphans = data.live_instances.filter(i => {
                         const name = is_array(i) ? (i.name ?? (i.instance?.instanceName ?? null)) : null;
-                        return name && !repInstances.includes(name);
+                        return name && name !== currentInst;
                     });
 
                     if (orphans.length > 0) {
-                        orphanBox.innerHTML = '<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5"><div class="font-bold text-amber-600 dark:text-amber-400">Instâncias Órfãs no Servidor:</div>' +
+                        orphanBox.innerHTML = '<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5"><div class="font-bold text-amber-600 dark:text-amber-400">Instâncias antigas encontradas no servidor (limpeza recomendada):</div>' +
                             orphans.map(o => {
                                 const oName = o.name || o.instance?.instanceName;
                                 return `<div class="flex items-center justify-between font-mono text-[11px] text-slate-700 dark:text-slate-300"><span>${oName}</span><button onclick="deleteInstanceFromEvolution('${oName}')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 dark:text-rose-400 font-sans font-bold text-[10px]">Excluir</button></div>`;
@@ -544,16 +517,7 @@
             }
         }
 
-        async function switchModalRepresentative(repId) {
-            currentSelectedRepId = repId;
-            const data = await checkWhatsAppStatus(repId);
-            if (!data || !data.connected || data.state !== 'open') {
-                fetchWhatsAppQrCode(repId);
-            }
-        }
-
-        async function fetchWhatsAppQrCode(repId = null) {
-            if (repId) currentSelectedRepId = repId;
+        async function fetchWhatsAppQrCode() {
             const qrLoading = document.getElementById('modal-qr-loading');
             const qrImg = document.getElementById('modal-qr-img');
             const pairingBox = document.getElementById('modal-pairing-box');
@@ -563,9 +527,7 @@
             if (qrImg) qrImg.classList.add('hidden');
 
             try {
-                const url = new URL('{{ route("portal.whatsapp.qrcode") }}', window.location.origin);
-                if (currentSelectedRepId) url.searchParams.set('representative_id', currentSelectedRepId);
-                const res = await fetch(url);
+                const res = await fetch('{{ route("portal.whatsapp.qrcode") }}');
                 const data = await res.json();
 
                 if (data.success && data.base64) {
@@ -580,7 +542,7 @@
                         pairingBox.classList.remove('hidden');
                     }
                 } else {
-                    checkWhatsAppStatus(currentSelectedRepId);
+                    checkWhatsAppStatus();
                 }
             } catch (err) {
                 console.error('Erro ao buscar QR code:', err);
@@ -588,25 +550,23 @@
         }
 
         async function disconnectWhatsApp() {
-            if (!confirm('Deseja desconectar a instância do WhatsApp deste representante?')) return;
+            if (!confirm('Deseja desconectar o WhatsApp da FarmaFlow?')) return;
             try {
-                const url = new URL('{{ route("portal.whatsapp.disconnect") }}', window.location.origin);
-                if (currentSelectedRepId) url.searchParams.set('representative_id', currentSelectedRepId);
-                await fetch(url, {
+                await fetch('{{ route("portal.whatsapp.disconnect") }}', {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                         'Content-Type': 'application/json'
                     }
                 });
-                checkWhatsAppStatus(currentSelectedRepId);
+                checkWhatsAppStatus();
             } catch (err) {
                 console.error('Erro ao desconectar WhatsApp:', err);
             }
         }
 
         async function deleteInstanceFromEvolution(instanceName) {
-            if (!confirm(`Deseja remover a instância '${instanceName}' da Evolution API?`)) return;
+            if (!confirm(`Deseja remover a instância antiga '${instanceName}' da Evolution API?`)) return;
             try {
                 await fetch('{{ route("portal.whatsapp.delete-instance") }}', {
                     method: 'POST',
@@ -616,18 +576,17 @@
                     },
                     body: JSON.stringify({ instance: instanceName })
                 });
-                checkWhatsAppStatus(currentSelectedRepId);
+                checkWhatsAppStatus();
             } catch (err) {
                 console.error('Erro ao deletar instância:', err);
             }
         }
 
-        async function openWhatsAppModal(repId = null) {
-            if (repId) currentSelectedRepId = repId;
+        async function openWhatsAppModal() {
             document.getElementById('whatsapp-modal').classList.remove('hidden');
-            const data = await checkWhatsAppStatus(currentSelectedRepId);
+            const data = await checkWhatsAppStatus();
             if (!data || !data.connected || data.state !== 'open') {
-                fetchWhatsAppQrCode(currentSelectedRepId);
+                fetchWhatsAppQrCode();
             }
         }
 

@@ -78,7 +78,7 @@ class CommercialAgentService
         }
 
         // 3. Montar o Prompt do Sistema com Regras e Memória Isolada
-        $repName = $representative?->name ?? 'nosso representante';
+        $repName = $representative?->name ?? 'Emmanuel Marcarini';
         $clientName = $contact?->name ?? 'Cliente';
         $companyName = $company?->trade_name ?? $company?->name ?? 'Empresa';
 
