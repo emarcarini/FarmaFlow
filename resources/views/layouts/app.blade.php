@@ -377,6 +377,9 @@
                 </p>
             </div>
 
+            <!-- Orphan Instances Cleanup (Optional) -->
+            <div id="modal-orphan-instances" class="hidden"></div>
+
             <!-- Modal Action Buttons -->
             <div class="flex gap-3 pt-2">
                 <button onclick="fetchWhatsAppQrCode()" class="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25">
@@ -505,6 +508,29 @@
                     }
                     if (disconnectBtn) disconnectBtn.classList.add('hidden');
                 }
+
+                // Renderiza instâncias órfãs detectadas na Evolution API para limpeza fácil
+                const orphanBox = document.getElementById('modal-orphan-instances');
+                if (orphanBox && data.live_instances && data.all_representatives) {
+                    const repInstances = data.all_representatives.map(r => r.whatsapp_instance);
+                    const orphans = data.live_instances.filter(i => {
+                        const name = is_array(i) ? (i.name ?? (i.instance?.instanceName ?? null)) : null;
+                        return name && !repInstances.includes(name);
+                    });
+
+                    if (orphans.length > 0) {
+                        orphanBox.innerHTML = '<div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1.5"><div class="font-bold text-amber-600 dark:text-amber-400">Instâncias Órfãs no Servidor:</div>' +
+                            orphans.map(o => {
+                                const oName = o.name || o.instance?.instanceName;
+                                return `<div class="flex items-center justify-between font-mono text-[11px] text-slate-700 dark:text-slate-300"><span>${oName}</span><button onclick="deleteInstanceFromEvolution('${oName}')" class="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 dark:text-rose-400 font-sans font-bold text-[10px]">Excluir</button></div>`;
+                            }).join('') + '</div>';
+                        orphanBox.classList.remove('hidden');
+                    } else {
+                        orphanBox.classList.add('hidden');
+                    }
+                }
+
+                return data;
             } catch (err) {
                 console.error('Erro ao verificar status do WhatsApp:', err);
                 const badgeDot = document.getElementById('whatsapp-header-dot');
@@ -514,13 +540,16 @@
                     badgeText.innerText = 'WhatsApp Desconectado';
                     badgeText.className = 'font-medium text-rose-500';
                 }
+                return null;
             }
         }
 
-        function switchModalRepresentative(repId) {
+        async function switchModalRepresentative(repId) {
             currentSelectedRepId = repId;
-            checkWhatsAppStatus(repId);
-            fetchWhatsAppQrCode(repId);
+            const data = await checkWhatsAppStatus(repId);
+            if (!data || !data.connected || data.state !== 'open') {
+                fetchWhatsAppQrCode(repId);
+            }
         }
 
         async function fetchWhatsAppQrCode(repId = null) {
@@ -576,11 +605,30 @@
             }
         }
 
-        function openWhatsAppModal(repId = null) {
+        async function deleteInstanceFromEvolution(instanceName) {
+            if (!confirm(`Deseja remover a instância '${instanceName}' da Evolution API?`)) return;
+            try {
+                await fetch('{{ route("portal.whatsapp.delete-instance") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ instance: instanceName })
+                });
+                checkWhatsAppStatus(currentSelectedRepId);
+            } catch (err) {
+                console.error('Erro ao deletar instância:', err);
+            }
+        }
+
+        async function openWhatsAppModal(repId = null) {
             if (repId) currentSelectedRepId = repId;
             document.getElementById('whatsapp-modal').classList.remove('hidden');
-            checkWhatsAppStatus(repId);
-            fetchWhatsAppQrCode(repId);
+            const data = await checkWhatsAppStatus(currentSelectedRepId);
+            if (!data || !data.connected || data.state !== 'open') {
+                fetchWhatsAppQrCode(currentSelectedRepId);
+            }
         }
 
         function closeWhatsAppModal() {

@@ -52,6 +52,38 @@ class WhatsAppConnectionController extends Controller
      */
     public function status(Request $request): JsonResponse
     {
+        // 1. Sincroniza em tempo real com as instâncias existentes na Evolution API
+        $liveInstances = $this->evolutionApi->fetchInstances();
+        $connectedInstances = [];
+
+        foreach ($liveInstances as $inst) {
+            $name = is_array($inst) ? ($inst['name'] ?? ($inst['instance']['instanceName'] ?? null)) : null;
+            $connStatus = is_array($inst) ? ($inst['connectionStatus'] ?? ($inst['instance']['state'] ?? ($inst['state'] ?? 'close'))) : 'close';
+
+            if ($name) {
+                $isOpen = ($connStatus === 'open');
+                if ($isOpen) {
+                    $connectedInstances[] = $name;
+                }
+
+                $matchingRep = Representative::where('whatsapp_instance', $name)->first();
+                if ($matchingRep) {
+                    $matchingRep->update([
+                        'whatsapp_status' => $isOpen ? 'open' : 'disconnected',
+                        'whatsapp_connected_at' => $isOpen ? ($matchingRep->whatsapp_connected_at ?? now()) : $matchingRep->whatsapp_connected_at,
+                    ]);
+                }
+            }
+        }
+
+        // 2. Se o usuário não especificou representative_id e existe um representante conectado, prioriza ele
+        if (!$request->filled('representative_id') && count($connectedInstances) > 0) {
+            $firstConnectedRep = Representative::whereIn('whatsapp_instance', $connectedInstances)->first();
+            if ($firstConnectedRep) {
+                $request->merge(['representative_id' => $firstConnectedRep->id]);
+            }
+        }
+
         $rep = $this->resolveRepresentative($request);
         $this->evolutionApi->forRepresentative($rep);
 
@@ -69,16 +101,10 @@ class WhatsAppConnectionController extends Controller
             ]);
         }
 
-        // Sincroniza webhooks para todas as instâncias existentes na Evolution API em background
-        try {
-            $this->evolutionApi->syncAllInstancesWebhooks();
-        } catch (\Throwable $e) {
-            // Silencioso
-        }
-
         $status['representative_name'] = $rep?->name ?? 'Geral';
         $status['representative_id'] = $rep?->id;
         $status['all_representatives'] = Representative::select('id', 'name', 'code', 'whatsapp_instance', 'whatsapp_status')->get();
+        $status['live_instances'] = $liveInstances;
 
         return response()->json($status);
     }
@@ -127,5 +153,19 @@ class WhatsAppConnectionController extends Controller
             'message' => 'Webhooks sincronizados com sucesso em todas as instâncias.',
             'results' => $results,
         ]);
+    }
+
+    /**
+     * Deletar uma instância órfã ou desconectada na Evolution API.
+     */
+    public function deleteOrphanInstance(Request $request): JsonResponse
+    {
+        $instanceName = $request->input('instance');
+        if (empty($instanceName)) {
+            return response()->json(['error' => 'Nome da instância não informado'], 400);
+        }
+
+        $result = $this->evolutionApi->deleteInstance($instanceName);
+        return response()->json($result);
     }
 }

@@ -60,6 +60,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/whatsapp/qrcode', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'getQrCode'])->name('portal.whatsapp.qrcode');
     Route::post('/whatsapp/disconnect', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'disconnect'])->name('portal.whatsapp.disconnect');
     Route::post('/whatsapp/sync-webhooks', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'syncWebhooks'])->name('portal.whatsapp.sync');
+    Route::post('/whatsapp/delete-instance', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'deleteOrphanInstance'])->name('portal.whatsapp.delete-instance');
 
     // 9. Módulo Administrativo (Apenas Admin)
     Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {

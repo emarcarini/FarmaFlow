@@ -200,6 +200,51 @@ class EvolutionApiService
     }
 
     /**
+     * Listar todas as instâncias existentes na Evolution API.
+     */
+    public function fetchInstances(): array
+    {
+        $url = "{$this->baseUrl}/instance/fetchInstances";
+        try {
+            $response = Http::withHeaders([
+                'apikey' => $this->apiKey,
+            ])->timeout(6)->get($url);
+
+            if ($response->successful()) {
+                return $response->json() ?? [];
+            }
+            return [];
+        } catch (\Throwable $e) {
+            Log::warning("Erro ao listar instâncias na Evolution API: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Deletar uma instância na Evolution API.
+     */
+    public function deleteInstance(string $instance): array
+    {
+        $url = "{$this->baseUrl}/instance/delete/{$instance}";
+        try {
+            $response = Http::withHeaders([
+                'apikey' => $this->apiKey,
+            ])->timeout(10)->delete($url);
+
+            return [
+                'success' => $response->successful(),
+                'status' => $response->status(),
+                'data' => $response->json(),
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Sincronizar o Webhook em todas as instâncias cadastradas no sistema e existentes na Evolution API.
      */
     public function syncAllInstancesWebhooks(): array
@@ -215,21 +260,13 @@ class EvolutionApiService
             }
         }
 
-        // 3. Buscar todas as instâncias existentes na Evolution API e configurar
-        try {
-            $fetchUrl = "{$this->baseUrl}/instance/fetchInstances";
-            $res = Http::withHeaders(['apikey' => $this->apiKey])->timeout(5)->get($fetchUrl);
-            if ($res->successful()) {
-                $instances = $res->json() ?? [];
-                foreach ($instances as $instData) {
-                    $name = is_array($instData) ? ($instData['name'] ?? ($instData['instance']['instanceName'] ?? null)) : null;
-                    if ($name && !isset($results[$name])) {
-                        $results[$name] = $this->setWebhookForInstance($name);
-                    }
-                }
+        // 2. Buscar todas as instâncias existentes na Evolution API e configurar
+        $instances = $this->fetchInstances();
+        foreach ($instances as $instData) {
+            $name = is_array($instData) ? ($instData['name'] ?? ($instData['instance']['instanceName'] ?? null)) : null;
+            if ($name && !isset($results[$name])) {
+                $results[$name] = $this->setWebhookForInstance($name);
             }
-        } catch (\Throwable $e) {
-            Log::warning("Erro ao listar instâncias na Evolution API: " . $e->getMessage());
         }
 
         return $results;
