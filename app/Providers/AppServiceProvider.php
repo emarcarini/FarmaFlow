@@ -20,8 +20,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (config('app.env') === 'production' || str_starts_with(config('app.url', ''), 'https://')) {
-            URL::forceScheme('https');
+        URL::forceScheme('https');
+        
+        $appUrl = config('app.url');
+        if ($appUrl && $appUrl !== 'http://localhost') {
+            if (str_starts_with($appUrl, 'http://')) {
+                $appUrl = str_replace('http://', 'https://', $appUrl);
+            }
+            URL::forceRootUrl($appUrl);
         }
     }
 }

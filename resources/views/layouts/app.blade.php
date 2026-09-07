@@ -140,7 +140,7 @@
                             <p class="text-xs text-slate-500 capitalize">{{ auth()->user()->role ?? 'Representante' }}</p>
                         </div>
                     </div>
-                    <form method="POST" action="{{ route('logout') }}">
+                    <form method="POST" action="/logout">
                         @csrf
                         <button type="submit" title="Sair do sistema" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800/80 rounded-lg transition-colors">
                             <i data-lucide="log-out" class="w-4 h-4"></i>
