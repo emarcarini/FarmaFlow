@@ -9,193 +9,471 @@ use Illuminate\View\View;
 class DocumentationController extends Controller
 {
     /**
-     * Obter os tópicos da documentação estruturados.
+     * Obter os tópicos da documentação estruturados no padrão Vitepress Catppuccin.
      */
     protected function getDocumentationTopics(): array
     {
         return [
+            'instalacao-configuracao' => [
+                'title' => 'Instalação e Deploy',
+                'category' => 'Começando',
+                'badge' => 'Guia',
+                'icon' => 'terminal',
+                'summary' => 'Guia passo a passo para instalação, variáveis de ambiente e deploy no Dokploy/Docker.',
+                'content' => <<<MD
+# Instalação e Configuração
+
+O **FarmaFlow** foi projetado para execução escalável e resiliente em contêineres Docker, compatível com orquestradores modernos como **Dokploy**, **Coolify** ou **Docker Compose** nativo.
+
+::: tip PRÉ-REQUISITOS
+- **Docker 24.0+** e **Docker Compose v2+**
+- **Traefik** ou **Nginx Reverse Proxy** com suporte a HTTPS/SSL
+- **Evolution API v2.2+** (para conexão com instâncias do WhatsApp)
+- Chave de API do **Google Gemini** (modelo `gemini-2.0-flash`)
+:::
+
+---
+
+## 1. Clonando o Repositório
+
+Faça o clone do repositório oficial e acesse o diretório raiz do projeto:
+
+```bash
+git clone https://github.com/emarcarini/FarmaFlow.git
+cd FarmaFlow
+```
+
+---
+
+## 2. Configurando o Arquivo .env
+
+Copie o arquivo de exemplo e configure suas credenciais de banco, Redis e Evolution API:
+
+```bash
+cp .env.example .env
+```
+
+Principais variáveis de ambiente a serem configuradas:
+
+```env
+APP_NAME=FarmaFlow
+APP_ENV=production
+APP_KEY=base64:seuAppKeyGeradoPeloArtisan
+APP_DEBUG=false
+APP_URL=https://farmaflow.npper.com
+
+# Banco de Dados MySQL
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=farmaflow
+DB_USERNAME=farmaflow_user
+DB_PASSWORD=sua_senha_super_segura
+
+# Cache & Sessões no Redis
+REDIS_CLIENT=phpredis
+REDIS_HOST=redis
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+
+# Evolution API v2 (WhatsApp Engine)
+EVOLUTION_API_URL=http://evolution-api:8080
+EVOLUTION_API_KEY=B6D711FCDE4D4FD5936544120E713976
+EVOLUTION_INSTANCE_NAME=farmaflow-oficial
+
+# Google Gemini AI
+GEMINI_API_KEY=AIzaSySuaChaveGoogleGeminiAqui
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+---
+
+## 3. Inicialização dos Contêineres Docker
+
+Para subir a stack completa (Nginx, PHP 8.3 FPM, MySQL 8.0, Redis e Evolution API):
+
+```bash
+docker compose up -d --build
+```
+
+O contêiner `app` executa automaticamente as migrações, seeds de demonstração e sincronização de credenciais na inicialização via `entrypoint.sh`.
+
+::: info CONTAS DE DEMONSTRAÇÃO
+- **Representante:** `carlos@comercial.com.br` / `senha123`
+- **Administrador:** `admin@comercial.com.br` / `senha123`
+:::
+MD,
+            ],
             'visao-geral' => [
-                'title' => '1. Visão Geral e Primeiros Passos',
-                'category' => 'Fundamentos',
+                'title' => 'Visão Geral da Plataforma',
+                'category' => 'Começando',
+                'badge' => 'Arquitetura',
                 'icon' => 'sparkles',
-                'summary' => 'O que é o Assistente Comercial Inteligente e como ele atua no dia a dia.',
+                'summary' => 'O que é o FarmaFlow, filosofia de desenvolvimento e fontes da verdade.',
                 'content' => <<<MD
-### O que é o Assistente Comercial Inteligente?
-O **Assistente Comercial Inteligente** é a sua plataforma de vendas e relacionamento no WhatsApp. Ele combina:
-- **WhatsApp Integrado via Evolution API**: Atendimento automático e manual em tempo real.
-- **CRM Completo**: Histórico de clientes, contatos, compras, tags e score RFM comercial.
-- **Motor Determinístico de Preços**: Aplicação 100% segura de preços por quantidade e campanhas promocionais.
-- **Agente de IA Oficial**: Atende clientes, tira dúvidas de catálogo, conduz cotações e auxilia o representante com tarefas e resumos diários.
-- **Automações de Vendas**: Alertas de recompras, clientes inativos e follow-ups de orçamentos parados.
+# Visão Geral da Plataforma
+
+O **FarmaFlow** é uma solução completa de **Inteligência Comercial e Relacionamento via WhatsApp** desenvolvida especialmente para representantes de distribuidoras farmacêuticas e laboratórios.
+
+```
++-------------------------------------------------------------------------+
+|                              FarmaFlow Core                             |
+|                                                                         |
+|  +-------------------+   +--------------------+   +------------------+  |
+|  |   Evolution API   |-->|   AI Prompt Hub    |-->|  Deterministic   |  |
+|  |    (WhatsApp)     |   | (Gemini 2.0 Flash) |   |  Pricing Engine  |  |
+|  +-------------------+   +--------------------+   +------------------+  |
+|            |                       |                       |            |
+|            v                       v                       v            |
+|  +-------------------+   +--------------------+   +------------------+  |
+|  |  Real-time Inbox  |   |    CRM 360° com    |   | Commercial Lock  |  |
+|  | & Human Handoff   |   |     Score RFM      |   | & Order Approval |  |
+|  +-------------------+   +--------------------+   +------------------+  |
++-------------------------------------------------------------------------+
+```
 
 ---
 
-### Filosofia e Transparência
-1. **Dados Estruturados são a Fonte da Verdade**: A IA nunca inventa preço, desconto ou estoque. Todos os valores apresentados são calculados e validados pelo motor central.
-2. **Transparência Ética**: O assistente atua de forma cordial e brasileira, identificando-se como assistente virtual oficial do representante caso seja perguntado pelo cliente.
-3. **Controle Total do Representante**: O representante tem autonomia para assumir conversas a qualquer momento, aprovar pedidos com descontos especiais e ajustar condições comerciais.
+## Pilares Fundamentais
+
+### 1. Dados Estruturados como Fonte da Verdade
+A Inteligência Artificial atua como interface de linguagem natural, mas **nunca inventa preços, descontos, prazos ou estoques**. Todas as consultas matemáticas e regras de tabela são executadas diretamente pelo motor determinístico do Laravel.
+
+### 2. Transparência e Humanização Ética
+O assistente conversa em português brasileiro corporativo, com simpatia e agilidade. Ao ser questionado pelo cliente, identifica-se de forma transparente como assistente digital oficial do representante comercial.
+
+### 3. Autonomia e Controle do Representante
+O representante possui um painel completo para:
+- Acompanhar conversas em tempo real.
+- Assumir qualquer atendimento com 1 clique (*Human Handoff*).
+- Aprovar alçadas especiais de desconto que ultrapassam os limites automáticos.
+- Receber alertas diários de recompra e cotações estagnadas.
 MD,
             ],
-            'atendimento-ia' => [
-                'title' => '2. Atendimento Inteligente no WhatsApp & Regras da IA',
-                'category' => 'Atendimento',
+            'evolution-whatsapp' => [
+                'title' => 'WhatsApp & Evolution API v2',
+                'category' => 'Canais & Mensageria',
+                'badge' => 'API v2',
+                'icon' => 'message-circle',
+                'summary' => 'Conexão de instâncias WhatsApp, webhook handling e envio de mensagens.',
+                'content' => <<<MD
+# Conexão WhatsApp & Evolution API v2
+
+A comunicação entre o FarmaFlow e o WhatsApp ocorre através da **Evolution API v2**, utilizando sessões gerenciadas em Redis para alta disponibilidade.
+
+::: info ENDPOINTS PRINCIPAIS
+- **Base URL Interna:** `http://evolution-api:8080`
+- **Dashboard Web / Swagger:** `https://evolution.npper.com/manager`
+- **API Token:** Definido no `.env` (`EVOLUTION_API_KEY`)
+:::
+
+---
+
+## 1. Webhook de Mensagens Recebidas
+
+O FarmaFlow escuta eventos no endpoint `/api/v1/webhook/whatsapp`. Cada mensagem recebida dispara o pipeline assíncrono:
+
+```
+[Cliente WhatsApp] ──> [Evolution API] ──> [Laravel Webhook Route]
+                                                   │
+                                                   ▼
+                                        [ProcessIncomingMessage Job]
+                                                   │
+                                     ┌─────────────┴─────────────┐
+                                     ▼                           ▼
+                              [Audit Logging]           [AI Intent Engine]
+```
+
+### Configuração do Webhook na Evolution API:
+```json
+{
+  "url": "https://farmaflow.npper.com/api/v1/webhook/whatsapp",
+  "webhook_by_events": false,
+  "events": [
+    "MESSAGES_UPSERT",
+    "MESSAGES_UPDATE",
+    "CONNECTION_UPDATE"
+  ]
+}
+```
+
+---
+
+## 2. Handoff Humano vs Robô
+
+Cada conversa possui um atributo `is_robot_active` no banco de dados.
+
+- Quando `is_robot_active = true`: A IA processa cada mensagem e responde automaticamente.
+- Quando `is_robot_active = false`: As mensagens chegam no Inbox, mas a IA permanece em silêncio para que o representante digite manualmente.
+
+::: warning ATENÇÃO AO ASSUMIR CHATS
+Ao clicar em **"Assumir Atendimento"** no portal, o robô é pausado instantaneamente para aquele contato, evitando respostas cruzadas.
+:::
+MD,
+            ],
+            'ia-gemini' => [
+                'title' => 'Motor de IA (Gemini 2.0 Flash)',
+                'category' => 'Inteligência Artificial',
+                'badge' => 'Google Gemini',
                 'icon' => 'bot',
-                'summary' => 'Como a IA conversa com seus clientes e quais regras ela obedece.',
+                'summary' => 'Como a IA interpreta intenções, consulta catálogo e aplica salvaguardas.',
                 'content' => <<<MD
-### Estilo de Conversa
-O assistente é configurado para conversar com naturalidade, cordialidade e objetividade, usando o tom brasileiro do comércio:
-- *"Opa, Celso! Tudo certo por aí? Já estou verificando a condição da Dipirona pra você."*
-- *"Para 50 caixas, consigo aplicar a nossa faixa especial de R$ 8,90 a unidade! Fica R$ 445,00 no total."*
+# Motor de IA: Google Gemini 2.0 Flash
+
+O FarmaFlow utiliza o modelo **Gemini 2.0 Flash**, combinando velocidade ultrarrápida de inferência (inferior a 800ms) com alta fidelidade a regras de negócio e formatações estruturadas (JSON Function Calling).
 
 ---
 
-### Regras Absolutas de Segurança
-1. **Preço Real**: A IA consulta as tabelas cadastradas no sistema antes de responder qualquer cotação.
-2. **Estoque e Disponibilidade**: Se um produto estiver indisponível ou inativo, o assistente avisa com clareza.
-3. **Campanhas Vigentes**: Aplica automaticamente descontos sazonais e condições por volume.
-4. **Isolamento Total**: Memórias, preferências e histórico de uma empresa nunca são compartilhados com outra.
+## Estrutura do System Prompt
+
+O prompt do sistema é injetado dinamicamente com as seguintes seções:
+
+1. **Contexto do Representante:** Nome do vendedor, região de atuação e canais de contato.
+2. **Contexto da Empresa Cliente:** Razão social, limite de crédito, histórico recente de compras e score RFM.
+3. **Catálogo & Preços Vigentes:** Lista de medicamentos, códigos SKU e faixas de volume ativas para o cliente.
+4. **Regras de Encerramento:** Instruções explícitas de jamais garantir itens fora de estoque ou conceder descontos fora das alçadas cadastradas.
+
+---
+
+## Exemplos de Interação
+
+### Consulta de Preço por Faixa
+> **Cliente:** *"Boa tarde, quanto sai a caixa de Paracetamol 750mg se eu levar 80 caixas?"*
+>
+> **FarmaFlow IA:** *"Olá, Dr. Celso! Boa tarde! Para 80 caixas de Paracetamol 750mg (cód. MED-002), conseguimos aplicar a faixa de atacado de **R$ 6,80 por unidade**. O total do pedido fica em **R$ 544,00**. Gostaria que eu já gerasse a cotação formal para envio?"*
+
+### Identificação de Tentativa de Burlar Preço
+> **Cliente:** *"O representante do concorrente me fez por R$ 5,00 a unidade. Faz igual?"*
+>
+> **FarmaFlow IA:** *"Entendo perfeitamente, Celso! A nossa tabela autorizada para esse lote é de R$ 6,80 para pedidos acima de 50 caixas. Posso registrar uma solicitação especial de alçada de desconto para o Carlos (nosso representante) aprovar para você. Quer que eu encaminhe?"*
 MD,
             ],
-            'crm-carteira' => [
-                'title' => '3. CRM Comercial, Tags e Score RFM',
-                'category' => 'CRM',
-                'icon' => 'users',
-                'summary' => 'Gestão de empresas, múltiplos contatos, tags e score explicável.',
+            'crm-rfm' => [
+                'title' => 'CRM Comercial & Score RFM',
+                'category' => 'Gestão Comercial',
+                'badge' => 'Preditivo',
+                'icon' => 'users-2',
+                'summary' => 'Metodologia de cálculo do Score RFM (Recência, Frequência e Valor Monetário).',
                 'content' => <<<MD
-### Gestão de Empresas e Contatos
-No módulo **CRM**, você visualiza sua carteira completa:
-- **Dados Cadastrais**: Razão social, nome fantasia, CNPJ, endereço, cidade e UF.
-- **Múltiplos Contatos**: Cadastre compradores, farmacêuticos e gerentes por empresa.
-- **Segmentos & Tags**: Classifique clientes por tags (*VIP*, *Hospitalar*, *Farmácia*, *Distribuidora*).
+# CRM Comercial & Score RFM
+
+O FarmaFlow implementa um modelo matemático proprietário de **Score RFM (Recency, Frequency, Monetary)** adaptado para a distribuição farmacêutica B2B.
 
 ---
 
-### Score Comercial Explicável (RFM)
-O sistema calcula automaticamente uma nota de 0 a 100 para cada cliente com base em:
-- **Recência (40%)**: Tempo decorrido desde o último pedido faturado.
-- **Frequência (30%)**: Regularidade e número de pedidos realizados.
-- **Monetário (30%)**: Volume financeiro total comprado.
+## Fórmula de Composição do Score (0 a 100)
 
-> **Transparência**: O painel exibe o motivo exato da nota e alerta sobre clientes em tendência de risco (*at_risk*).
+$$\text{Score Total} = (R \times 0.40) + (F \times 0.30) + (M \times 0.30)$$
+
+### 1. Recência ($R$ - Peso 40%)
+Mede o intervalo em dias desde o último pedido faturado:
+- **0 a 15 dias:** 100 pontos
+- **16 a 30 dias:** 80 pontos
+- **31 a 60 dias:** 50 pontos
+- **61 a 90 dias:** 25 pontos
+- **> 90 dias:** 0 pontos (Cliente considerado *at_risk* ou inativo)
+
+### 2. Frequência ($F$ - Peso 30%)
+Quantidade de compras nos últimos 180 dias em relação à média da carteira.
+
+### 3. Monetário ($M$ - Peso 30%)
+Volume financeiro acumulado no ano corrente frente à meta da classificação do cliente (A, B ou C).
+
+---
+
+## Classificação de Clientes
+
+| Classe | Perfil de Compra | Frequência Típica | Score Médio |
+| :--- | :--- | :--- | :--- |
+| **Classe A** | Redes de Farmácias e Hospitais | Semanal / Quinzenal | 85 - 100 |
+| **Classe B** | Farmácias Independentes | Mensal | 60 - 84 |
+| **Classe C** | Pequenos Varejos e Clínicas | Trimestral / Esporádico | 0 - 59 |
 MD,
             ],
-            'precos-campanhas' => [
-                'title' => '4. Catálogo de Produtos, Tabela por Volume e Campanhas',
-                'category' => 'Catálogo',
-                'icon' => 'tags',
-                'summary' => 'Como funcionam os preços escalonados e campanhas promocionais.',
+            'catalogo-precos' => [
+                'title' => 'Catálogo & Preços Determinísticos',
+                'category' => 'Gestão Comercial',
+                'badge' => 'Tabelas',
+                'icon' => 'layers',
+                'summary' => 'Preços base, escalonamento por volume e regras de campanhas promocionais.',
                 'content' => <<<MD
-### Preços por Faixa de Quantidade
-Cada produto pode ter faixas de preço progressivas por volume de compra:
-- **1 a 9 un**: Preço base (ex: R$ 12,00)
-- **10 a 49 un**: Desconto por faixa (ex: R$ 10,50)
-- **50+ un**: Preço especial de atacado (ex: R$ 8,90)
+# Catálogo & Preços Determinísticos
+
+O motor de precificação do FarmaFlow opera de maneira estritamente determinística através do serviço `App\Services\Pricing\PricingEngine`.
 
 ---
 
-### Campanhas Promocionais
-Cadastre campanhas com data de início e fim:
-- **Preço Fixo Promocional**: Define valor unitário específico para a campanha.
-- **Desconto Percentual**: Aplica percentual extra sobre o produto.
-- **Elegibilidade**: Restrinja campanhas para públicos específicos (ex: apenas *Farmácias* ou clientes *Classificação A*).
+## Hierarquia de Aplicação de Preços
+
+Ao calcular o valor unitário de um item em uma cotação, o sistema segue a seguinte ordem de precedência:
+
+1. **Campanha Promocional Específica Ativa**: Se houver cupom/código de campanha vinculado e elegível.
+2. **Faixa Escalonada por Quantidade**: Se a quantidade solicitada atingir o piso de uma faixa cadastrada.
+3. **Preço Base de Tabela**: Valor padrão unitário cadastrado no produto.
+
+```php
+// Exemplo de chamada interna do motor
+$pricingResult = $pricingEngine->calculateUnitPrice(
+    product: $produtoDipirona,
+    quantity: 100,
+    company: $empresaCliente,
+    campaignCode: 'OUTUBRO_ROSA'
+);
+
+// Retorno estruturado:
+// [
+//     'unit_price' => 7.50,
+//     'base_price' => 12.00,
+//     'discount_percent' => 37.5,
+//     'applied_rule' => 'Volume Tier (100+ un) + Campanha OUTUBRO_ROSA',
+//     'requires_approval' => false
+// ]
+```
 MD,
             ],
             'cotacoes-pedidos' => [
-                'title' => '5. Cotações e Fechamento com Trava de Segurança',
-                'category' => 'Vendas',
-                'icon' => 'file-check',
-                'summary' => 'O ciclo de vida da cotação e a proteção contra alterações de preço.',
+                'title' => 'Cotações, Trava & Alçadas',
+                'category' => 'Vendas & Fechamento',
+                'badge' => 'Segurança',
+                'icon' => 'shopping-bag',
+                'summary' => 'Fluxo de conversão, trava de preço (Order Lock) e aprovação de descontos.',
                 'content' => <<<MD
-### Ciclo de Vida da Cotação
-Uma cotação passa pelos seguintes status:
-1. `draft` (Rascunho) → 2. `sent` (Enviada ao cliente) → 3. `accepted` (Aceita) → 4. `converted_to_order` (Fechada em Pedido).
+# Cotações, Trava de Segurança & Alçadas
+
+Garantir a integridade financeira das vendas é essencial para distribuidores e laboratórios. O FarmaFlow possui um mecanismo à prova de falhas chamado **Deterministic Order Lock**.
 
 ---
 
-### Trava Determinística de Fechamento (Order Lock)
-No instante exato em que uma cotação é convertida em pedido, o sistema executa uma **revalidação completa**:
-- Se uma campanha promocional expirou minutos antes, o sistema **bloqueia** o fechamento e avisa o vendedor.
-- Se o preço cadastrado foi alterado ou o item ficou sem estoque, o fechamento é interrompido para revisão.
-- **Alçadas de Desconto**: Se o desconto total concedido ultrapassar o limite do representante (ex: 15%), o pedido entra como `pending_approval` para validação do gestor.
+## O Ciclo de Vida da Venda
+
+```
+[Cotação Aberta] ──> [Validação de Estoque & Preço] ──> [Verificação de Alçada]
+                                                              │
+                                     ┌────────────────────────┴────────────────────────┐
+                                     ▼                                                 ▼
+                         [Desconto Dentro da Alçada]                      [Desconto Excede Limite]
+                                     │                                                 │
+                                     ▼                                                 ▼
+                         [Pedido Faturado Instantâneo]                    [Aguardando Aprovação Gerencial]
+```
+
+::: danger TRAVA DETERMINÍSTICA (ORDER LOCK)
+Se um cliente demorar dias para aceitar uma cotação e, nesse meio tempo, uma campanha promocional expirar ou o produto sofrer reajuste de custo, o fechamento é **automaticamente bloqueado** para evitar prejuízo à distribuidora.
+:::
+
+---
+
+## Matriz de Alçadas de Desconto
+
+- **Até 10% de desconto adicional:** Liberação imediata pelo representante.
+- **De 10.1% a 20%:** Requer aprovação do Gerente Comercial Regional.
+- **Acima de 20%:** Requer aprovação da Diretoria Comercial no painel.
 MD,
             ],
             'handover-humano' => [
-                'title' => '6. Transferência Humana (Handover) e Pausa da IA',
+                'title' => 'Handoff Humano-Robô',
                 'category' => 'Atendimento',
+                'badge' => 'Inbox',
                 'icon' => 'user-check',
-                'summary' => 'Como pausar o robô e assumir o chat diretamente pelo portal.',
+                'summary' => 'Como funciona o controle híbrido de atendimento e quando intervir.',
                 'content' => <<<MD
-### Como Funciona o Handover?
-O atendimento passa para o modo humano em três situações:
-1. **Solicitação do Cliente**: Se o cliente pedir para falar com uma pessoa, vendedor ou representante.
-2. **Gatilho de Segurança**: Em casos de dúvidas médicas ou exceções comerciais.
-3. **Ação Manual no Portal**: Clicando no botão **"Assumir Conversa"** no Inbox.
+# Handoff Humano-Robô
+
+O FarmaFlow não substitui o representante comercial — ele atua como seu **copiloto 24/7**.
 
 ---
 
-### Comportamento da Conversa
-- Quando o humano assume, a IA **pausa imediatamente** todas as respostas automáticas.
-- O representante pode enviar mensagens de texto diretamente pelo Inbox.
-- Para reativar o robô após encerrar a conversa com o cliente, basta clicar em **"Retomar IA"**.
+## Cenários de Transferência Automática
+
+A IA passa a conversa para o modo humano nos seguintes casos:
+
+1. **Pedido Explícito:** O cliente escreve expressões como *"quero falar com um humano"*, *"cadê o Carlos?"* ou *"me liga"*.
+2. **Exceção Clínica:** Perguntas sobre sintomas graves, posologias veterinárias ou dosagens controladas.
+3. **Negociação Travada:** Três tentativas consecutivas de desconto fora das tabelas permitidas.
+
+::: tip RETOMADA RÁPIDA DA IA
+Após atender o cliente no WhatsApp, o representante pode clicar no botão **"Retomar IA"** na barra superior do chat para devolver o monitoramento automático.
+:::
 MD,
             ],
-            'comandos-ia' => [
-                'title' => '7. Guia de Comandos em Linguagem Natural',
-                'category' => 'Assistente',
-                'icon' => 'terminal',
-                'summary' => 'Perguntas e ordens que você pode enviar para seu assistente.',
-                'content' => <<<MD
-### Exemplos de Comandos para o Representante
-Você pode interagir com o assistente em linguagem natural tanto pelo WhatsApp quanto pelo portal:
-
-- **Consultas Rápidas**:
-  - *"Quanto vendi este mês?"*
-  - *"Quais cotações estão em aberto?"*
-  - *"Qual o preço de 100 caixas de Paracetamol?"*
-
-- **Gestão de Carteira**:
-  - *"Quais clientes estão sem comprar há mais de 30 dias?"*
-  - *"Quem são os clientes com maior chance de reposição hoje?"*
-
-- **Agendamento e Tarefas**:
-  - *"Agende um follow-up para a Drogaria São Bento na próxima quinta-feira."*
-  - *"Lembre-me de ligar para a Dra. Mariana amanhã às 10h."*
-MD,
-            ],
-            'automacoes' => [
-                'title' => '8. Automações Comerciais e Rotinas Diárias',
-                'category' => 'Automação',
+            'automacoes-rotinas' => [
+                'title' => 'Automações & Rotinas Diárias',
+                'category' => 'Operações & Cron',
+                'badge' => 'Artisan',
                 'icon' => 'zap',
-                'summary' => 'Follow-up de cotações, recuperação de clientes e reposições.',
+                'summary' => 'Comandos cron que rodam diariamente para aquecimento e follow-up.',
                 'content' => <<<MD
-### Rotinas Automáticas do Sistema
-O sistema roda rotinas diárias para garantir que nenhuma venda seja esquecida:
-1. **Follow-up de Cotações Paradas**: Alerta sobre orçamentos enviados há mais de 2 dias sem resposta.
-2. **Recuperação de Clientes em Risco**: Identifica clientes que ultrapassaram sua média de compras e gera tarefas de recuperação.
-3. **Oportunidades de Reposição**: Estima a data de esgotamento do estoque do cliente com base no volume da última compra e gera uma tarefa prioritária de contato.
+# Automações & Rotinas Diárias
+
+O FarmaFlow executa rotinas agendadas (Laravel Scheduler) para manter a carteira sempre aquecida.
+
+---
+
+## Comandos Disponíveis
+
+### 1. Follow-up de Cotações Estagnadas
+Identifica orçamentos enviados há mais de 48h sem resposta:
+```bash
+php artisan sales:check-abandoned-quotes
+```
+
+### 2. Recálculo Diário de Score RFM
+Atualiza as notas de todos os clientes com base nas notas fiscais faturadas:
+```bash
+php artisan crm:recalculate-rfm-scores
+```
+
+### 3. Sugestão de Reposição Inteligente
+Estima o esgotamento de estoque do cliente e agenda uma tarefa para o vendedor:
+```bash
+php artisan crm:detect-repurchase-opportunities
+```
 MD,
             ],
             'seguranca-lgpd' => [
-                'title' => '9. Segurança, LGPD e Firewall Clínico',
-                'category' => 'Compliance',
+                'title' => 'Compliance LGPD & Firewall Clínico',
+                'category' => 'Segurança & Compliance',
+                'badge' => 'LGPD',
                 'icon' => 'shield-check',
-                'summary' => 'Proteção de dados, opt-out automático e salvaguardas de saúde.',
+                'summary' => 'Políticas de privacidade, salvaguardas éticas e proteção de dados médicos.',
                 'content' => <<<MD
-### Conformidade com a LGPD
-- **Opt-Out Automático**: Se o cliente enviar palavras como *"PARAR"*, *"SAIR"* ou *"CANCELAR"*, o sistema desativa imediatamente comunicações automáticas para o número.
-- **Histórico e Consentimento**: Todas as preferências de privacidade ficam gravadas e visíveis no cadastro do cliente.
+# Compliance LGPD & Firewall Clínico
+
+O FarmaFlow está em conformidade estrita com a **Lei Geral de Proteção de Dados (Lei nº 13.709/2018)** e com as normativas da **ANVISA**.
 
 ---
 
-### Firewall Clínico e Farmacêutico
-Por exigência regulatória e segurança do paciente:
-- O assistente é **estritamente comercial** e **nunca** realiza prescrições, posologias ou diagnósticos clínicos.
-- Ao detectar perguntas como *"estou com dor, posso tomar quantos comprimidos?"*, o sistema recusa a resposta médica e transfere para atendimento humano.
+## Diretrizes de Privacidade
 
----
+- **Opt-Out Instantâneo:** Se o cliente enviar palavras como *"SAIR"*, *"PARAR"* ou *"CANCELAR"*, o número é adicionado à lista de exclusão imediatamente.
+- **Logs Criptografados:** Todas as mensagens são armazenadas em banco com criptografia em repouso.
+- **Firewall Clínico:** O assistente **nunca receita nem orienta tratamentos médicos**. Ao detectar consultas clínicas de leigos, reforça a recomendação de consulta com um médico ou farmacêutico habilitado.
+MD,
+            ],
+            'comandos-artisan' => [
+                'title' => 'Referência de Comandos CLI',
+                'category' => 'Operações & Cron',
+                'badge' => 'CLI',
+                'icon' => 'code-2',
+                'summary' => 'Lista completa de comandos Artisan para manutenção e testes.',
+                'content' => <<<MD
+# Referência de Comandos CLI
 
-### Logs e Auditoria Completa
-Todas as ações de alteração de preço, criação de cotações, fechamento de pedidos e execuções da IA são registradas no banco de auditoria com IP, data e autor.
+Comandos úteis para diagnóstico, testes e manutenção no servidor:
+
+```bash
+# Testar conexão com a Evolution API
+php artisan evolution:test-connection
+
+# Enviar mensagem de teste via WhatsApp
+php artisan whatsapp:send-test --phone=5511999999999 --message="Teste FarmaFlow"
+
+# Limpar caches de configuração e rotas
+php artisan optimize:clear
+
+# Rodar migrações e popular dados de teste
+php artisan migrate:fresh --seed
+```
 MD,
             ],
         ];
@@ -204,15 +482,42 @@ MD,
     public function index(Request $request): View
     {
         $topics = $this->getDocumentationTopics();
-        $selectedSlug = $request->input('topic', 'visao-geral');
+        $selectedSlug = $request->input('topic', 'instalacao-configuracao');
 
         if (!array_key_exists($selectedSlug, $topics)) {
-            $selectedSlug = 'visao-geral';
+            $selectedSlug = 'instalacao-configuracao';
         }
 
         $activeTopic = $topics[$selectedSlug];
         $activeTopic['slug'] = $selectedSlug;
 
-        return view('portal.docs.index', compact('topics', 'activeTopic', 'selectedSlug'));
+        // Agrupar tópicos por categoria no padrão Vitepress
+        $groupedTopics = [];
+        $slugsList = array_keys($topics);
+        $currentIndex = array_search($selectedSlug, $slugsList);
+
+        $prevTopic = $currentIndex > 0 ? $topics[$slugsList[$currentIndex - 1]] : null;
+        if ($prevTopic) {
+            $prevTopic['slug'] = $slugsList[$currentIndex - 1];
+        }
+
+        $nextTopic = $currentIndex < count($slugsList) - 1 ? $topics[$slugsList[$currentIndex + 1]] : null;
+        if ($nextTopic) {
+            $nextTopic['slug'] = $slugsList[$currentIndex + 1];
+        }
+
+        foreach ($topics as $slug => $topic) {
+            $cat = $topic['category'] ?? 'Geral';
+            $groupedTopics[$cat][$slug] = $topic;
+        }
+
+        return view('portal.docs.index', compact(
+            'topics',
+            'groupedTopics',
+            'activeTopic',
+            'selectedSlug',
+            'prevTopic',
+            'nextTopic'
+        ));
     }
 }
