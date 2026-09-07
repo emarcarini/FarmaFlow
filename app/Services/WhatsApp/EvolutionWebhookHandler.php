@@ -35,6 +35,34 @@ class EvolutionWebhookHandler
             return ['status' => 'connection_event_received'];
         }
 
+        // Se for evento de contatos (CONTACTS_UPDATE / CONTACTS_UPSERT)
+        if (str_contains($event, 'contact')) {
+            Log::info("Webhook Evolution contatos recebido: {$event}");
+            $rawList = $payload['data'] ?? [];
+            if (is_array($rawList)) {
+                $items = isset($rawList['remoteJid']) ? [$rawList] : $rawList;
+                foreach ($items as $c) {
+                    if (is_array($c) && !empty($c['remoteJid']) && !empty($c['pushName'])) {
+                        $cPhone = preg_replace('/\D+/', '', explode('@', $c['remoteJid'])[0]);
+                        if (!empty($cPhone) && strlen($cPhone) >= 10) {
+                            $existing = Contact::where('phone', $cPhone)
+                                ->orWhere('phone', 'like', "%" . substr($cPhone, -8))
+                                ->first();
+                            if ($existing) {
+                                $existing->update(['name' => $c['pushName']]);
+                            }
+                        }
+                    }
+                }
+            }
+            return ['status' => 'contacts_synced'];
+        }
+
+        // Se for evento de chat genérico sem mensagem
+        if (str_contains($event, 'chat') && !str_contains($event, 'message')) {
+            return ['status' => 'chats_event_received'];
+        }
+
         // Desembrulhar payload de mensagens
         $data = $payload['data'] ?? $payload;
         if (isset($data[0]) && is_array($data[0])) {
