@@ -138,11 +138,17 @@ class GeminiApiService
             $normalized['required'] = $params['required'];
         }
 
-        if (!empty($params['properties'])) {
-            $normalized['properties'] = [];
-            foreach ($params['properties'] as $propName => $propDef) {
-                $normalized['properties'][$propName] = $this->normalizeParameters($propDef);
+        if (isset($params['properties'])) {
+            if (empty($params['properties'])) {
+                $normalized['properties'] = (object) [];
+            } else {
+                $normalized['properties'] = [];
+                foreach ($params['properties'] as $propName => $propDef) {
+                    $normalized['properties'][$propName] = $this->normalizeParameters($propDef);
+                }
             }
+        } elseif ($type === 'OBJECT') {
+            $normalized['properties'] = (object) [];
         }
 
         if (!empty($params['items'])) {

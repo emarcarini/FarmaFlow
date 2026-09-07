@@ -406,6 +406,47 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $p6 = Product::firstOrCreate(
+            ['code' => 'PROD-006'],
+            [
+                'sku' => 'MED-TAD-20',
+                'name' => 'Tadalafila 20mg',
+                'presentation' => 'Caixa com 30 comprimidos revestidos',
+                'description' => 'Vasodilatador indicado para disfunção erétil e hiperplasia prostática benigna.',
+                'unit' => 'cx',
+                'base_price' => 32.00,
+                'stock_quantity' => 1500,
+                'is_active' => true,
+                'category' => 'Urologia',
+            ]
+        );
+        ProductPrice::firstOrCreate(
+            ['product_id' => $p6->id, 'min_quantity' => 1],
+            [
+                'max_quantity' => 9,
+                'unit_price' => 32.00,
+                'priority' => 1,
+            ]
+        );
+        ProductPrice::firstOrCreate(
+            ['product_id' => $p6->id, 'min_quantity' => 10],
+            [
+                'max_quantity' => 29,
+                'unit_price' => 26.50,
+                'discount_pct' => 17.18,
+                'priority' => 2,
+            ]
+        );
+        ProductPrice::firstOrCreate(
+            ['product_id' => $p6->id, 'min_quantity' => 30],
+            [
+                'max_quantity' => null,
+                'unit_price' => 21.90,
+                'discount_pct' => 31.56,
+                'priority' => 3,
+            ]
+        );
+
         // 5. Campanhas Comerciais Vigentes
         $campanhaInverno = CommercialCampaign::firstOrCreate(
             ['code' => 'CAMP-INVERNO-2026'],

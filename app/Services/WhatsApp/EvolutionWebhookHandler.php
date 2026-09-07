@@ -147,18 +147,25 @@ class EvolutionWebhookHandler
             return ['status' => 'empty_content'];
         }
 
+        $isAdmin = self::isAdminPhone($phone);
+
         // 3. PERSISTÊNCIA COMPLETA E IMEDIATA (Contato, Conversa, Mensagem)
         // Salva primeiro para garantir que mesmo em falha de IA/envio o registro apareça no Inbox
-        [$contact, $conversation, $inboundMessage] = DB::transaction(function () use ($phone, $messageId, $messageText, $data, $targetRep) {
+        [$contact, $conversation, $inboundMessage] = DB::transaction(function () use ($phone, $messageId, $messageText, $data, $targetRep, $isAdmin) {
             $contact = Contact::where('phone', $phone)
                 ->orWhere('phone', 'like', "%" . substr($phone, -8))
                 ->first();
 
+            $contactName = $isAdmin 
+                ? 'Emmanuel Marcarini (Administrador)' 
+                : ($data['pushName'] ?? "Cliente WhatsApp ({$phone})");
+
             if (!$contact) {
                 $contact = Contact::create([
-                    'name' => $data['pushName'] ?? "Cliente WhatsApp ({$phone})",
+                    'name' => $contactName,
                     'phone' => $phone,
                     'representative_id' => $targetRep?->id,
+                    'role_position' => $isAdmin ? 'Administrador Geral' : null,
                 ]);
 
                 ConsentPreference::create([
@@ -166,8 +173,18 @@ class EvolutionWebhookHandler
                     'channel' => 'whatsapp',
                     'is_opted_out' => false,
                 ]);
-            } elseif (!$contact->representative_id && $targetRep) {
-                $contact->update(['representative_id' => $targetRep->id]);
+            } else {
+                $updates = [];
+                if ($isAdmin && !str_contains($contact->name, 'Administrador')) {
+                    $updates['name'] = 'Emmanuel Marcarini (Administrador)';
+                    $updates['role_position'] = 'Administrador Geral';
+                }
+                if (!$contact->representative_id && $targetRep) {
+                    $updates['representative_id'] = $targetRep->id;
+                }
+                if (!empty($updates)) {
+                    $contact->update($updates);
+                }
             }
 
             $conversation = Conversation::firstOrCreate(
@@ -179,14 +196,20 @@ class EvolutionWebhookHandler
                     'representative_id' => $contact->representative_id ?? $targetRep?->id,
                     'status' => 'ai_handling',
                     'last_message_at' => now(),
+                    'metadata' => $isAdmin ? ['is_admin' => true] : null,
                 ]
             );
+
+            // Se for admin, garante que a conversa está ativa para IA responder o admin
+            if ($isAdmin && $conversation->isHumanTakeover()) {
+                $conversation->update(['status' => 'ai_handling']);
+            }
 
             $inboundMessage = Message::create([
                 'conversation_id' => $conversation->id,
                 'direction' => 'inbound',
                 'external_id' => $messageId,
-                'sender_type' => 'customer',
+                'sender_type' => $isAdmin ? 'representative' : 'customer',
                 'content' => $messageText,
                 'message_type' => 'text',
                 'status' => 'received',
@@ -200,7 +223,7 @@ class EvolutionWebhookHandler
 
         // 4. TRATAMENTO DE OPT-OUT LGPD ("PARAR", "SAIR", "CANCELAR")
         $upper = mb_strtoupper(trim($messageText), 'UTF-8');
-        if (in_array($upper, ['PARAR', 'SAIR', 'CANCELAR', 'OPT-OUT', 'DESCADASTRO', 'NÃO ENVIAR MAIS'])) {
+        if (!$isAdmin && in_array($upper, ['PARAR', 'SAIR', 'CANCELAR', 'OPT-OUT', 'DESCADASTRO', 'NÃO ENVIAR MAIS'])) {
             ConsentPreference::updateOrCreate(
                 ['contact_id' => $contact->id, 'channel' => 'whatsapp'],
                 [
@@ -226,24 +249,30 @@ class EvolutionWebhookHandler
         }
 
         // 5. Se o cliente estiver com opt-out ativo, não prosseguir
-        if ($contact->isOptedOut('whatsapp')) {
+        if (!$isAdmin && $contact->isOptedOut('whatsapp')) {
             Log::info("Contato {$contact->id} possui opt-out de WhatsApp ativo. IA ignorando.");
             return ['status' => 'opted_out_ignored'];
         }
 
-        // 6. Se a conversa estiver em atendimento humano, apenas registrar a mensagem
-        if ($conversation->isHumanTakeover()) {
+        // 6. Se a conversa estiver em atendimento humano, apenas registrar a mensagem (exceto se for o Admin conversando com o Bot)
+        if (!$isAdmin && $conversation->isHumanTakeover()) {
             Log::info("Conversa {$conversation->id} em atendimento humano. Mensagem salva.");
             return ['status' => 'human_takeover_recorded'];
         }
 
-        // 7. Chamar Agente de IA Comercial (com tratamento de exceção para não quebrar o webhook)
+        // 7. Chamar Agente de IA Comercial / Copiloto Admin
         try {
-            $aiResponse = $this->agentService->handleCustomerMessage($conversation, $messageText, $instanceName);
+            $aiResponse = $this->agentService->handleCustomerMessage(
+                conversation: $conversation,
+                userMessage: $messageText,
+                instanceName: $instanceName,
+                isAdmin: $isAdmin
+            );
 
             return [
                 'status' => 'processed',
                 'conversation_id' => $conversation->id,
+                'is_admin' => $isAdmin,
                 'response' => $aiResponse,
             ];
         } catch (\Throwable $e) {
@@ -258,5 +287,49 @@ class EvolutionWebhookHandler
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Verificar se o número de telefone pertence ao Administrador / Gestor do sistema.
+     */
+    public static function isAdminPhone(?string $phone): bool
+    {
+        if (empty($phone)) {
+            return false;
+        }
+
+        $clean = preg_replace('/\D+/', '', $phone);
+        if (empty($clean)) {
+            return false;
+        }
+
+        // Número direto de Emmanuel Marcarini (com ou sem DDI 55)
+        if (str_ends_with($clean, '28999439677') || str_ends_with($clean, '999439677')) {
+            return true;
+        }
+
+        // Variável de ambiente configurada no .env (ADMIN_PHONE)
+        $envAdmin = env('ADMIN_PHONE');
+        if (!empty($envAdmin)) {
+            $cleanEnv = preg_replace('/\D+/', '', $envAdmin);
+            if (!empty($cleanEnv) && (str_ends_with($clean, $cleanEnv) || str_ends_with($cleanEnv, $clean))) {
+                return true;
+            }
+        }
+
+        // Busca em usuários admin cadastrados no banco
+        try {
+            $adminUsers = \App\Models\User::where('role', 'admin')->whereNotNull('phone')->get();
+            foreach ($adminUsers as $u) {
+                $uClean = preg_replace('/\D+/', '', $u->phone);
+                if (!empty($uClean) && (str_ends_with($clean, $uClean) || str_ends_with($uClean, $clean))) {
+                    return true;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Em caso de falha de conexão com o banco
+        }
+
+        return false;
     }
 }

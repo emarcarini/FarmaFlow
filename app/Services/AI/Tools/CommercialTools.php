@@ -179,13 +179,84 @@ class CommercialTools
             ],
         ];
 
-        // Ferramentas adicionais exclusivas para o Representante
-        if ($mode === 'representative') {
+        // Ferramentas adicionais exclusivas para o Administrador / Representante
+        if ($mode === 'representative' || $mode === 'admin') {
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'listar_catalogo_completo',
+                    'description' => 'Lista todos os medicamentos e produtos ativos no catálogo FarmaFlow com código, nome, apresentação, estoque disponível e preço base.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [],
+                    ],
+                ],
+            ];
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'listar_regras_bot',
+                    'description' => 'Lista todas as regras e instruções ativas cadastradas para o robô IA seguir com clientes.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [],
+                    ],
+                ],
+            ];
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'adicionar_regra_bot',
+                    'description' => 'Cadastra uma nova regra ou instrução comercial para o robô seguir nos atendimentos com clientes.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'titulo' => [
+                                'type' => 'string',
+                                'description' => 'Título curto da regra (ex: Frete Cortesia Interior, Alçada Desconto).',
+                            ],
+                            'conteudo' => [
+                                'type' => 'string',
+                                'description' => 'Texto detalhado da instrução ou regra comercial.',
+                            ],
+                        ],
+                        'required' => ['conteudo'],
+                    ],
+                ],
+            ];
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'status_sistema',
+                    'description' => 'Exibe o status operacional do sistema, total de clientes atendidos, pedidos do dia e conexão WhatsApp.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [],
+                    ],
+                ],
+            ];
+            $tools[] = [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'consultar_cliente',
+                    'description' => 'Consulta o histórico de compras, limites e status de um cliente específico pelo nome ou CNPJ.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'termo' => [
+                                'type' => 'string',
+                                'description' => 'Nome da empresa, nome fantasia ou documento do cliente.',
+                            ],
+                        ],
+                        'required' => ['termo'],
+                    ],
+                ],
+            ];
             $tools[] = [
                 'type' => 'function',
                 'function' => [
                     'name' => 'gerar_resumo_comercial',
-                    'description' => 'Gera resumo consolidado das vendas, cotações abertas e tarefas do mês ou dia.',
+                    'description' => 'Gera resumo consolidado das vendas, faturamento, cotações abertas e tarefas de hoje ou do mês.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -234,6 +305,11 @@ class CommercialTools
 
         return match ($toolName) {
             'buscar_produto' => $this->executeSearchProduct($arguments),
+            'listar_catalogo_completo' => $this->executeListCatalog(),
+            'listar_regras_bot' => $this->executeListBotRules(),
+            'adicionar_regra_bot' => $this->executeAddBotRule($arguments),
+            'status_sistema' => $this->executeSystemStatus(),
+            'consultar_cliente' => $this->executeConsultCustomer($arguments),
             'consultar_preco' => $this->executeCheckPrice($arguments, $company, $contact),
             'consultar_campanhas_ativas' => $this->executeCheckCampaigns($company, $contact),
             'criar_cotacao' => $this->executeCreateQuote($arguments, $company, $contact),
@@ -250,28 +326,59 @@ class CommercialTools
 
     protected function executeSearchProduct(array $args): array
     {
-        $term = $args['termo'] ?? '';
+        $rawTerm = trim($args['termo'] ?? '');
         $category = $args['categoria'] ?? null;
 
-        $products = Product::where('is_active', true)
-            ->where(function ($q) use ($term) {
-                $q->where('name', 'like', "%{$term}%")
-                    ->orWhere('code', 'like', "%{$term}%")
-                    ->orWhere('description', 'like', "%{$term}%");
-            })
-            ->when($category, fn($q) => $q->where('category', $category))
-            ->take(5)
-            ->get();
+        // Limpeza de termos comuns de perguntas informais (ex: "tem tadala?", "você tem dipirona?")
+        $cleanTerm = preg_replace('/^(tem|voc[eê] tem|possu[ei]|qual o pre[cç]o d[eao]|quanto custa|valor d[eao])\s+/ui', '', $rawTerm);
+        $cleanTerm = trim(preg_replace('/[?!.,]/', '', $cleanTerm));
+        $lower = mb_strtolower($cleanTerm, 'UTF-8');
+
+        $isGeneric = empty($lower) || in_array($lower, ['todos', 'tudo', 'todas', 'catálogo', 'catalogo', 'produtos', 'medicamentos', 'remédios', 'remedios', 'lista']);
+
+        $query = Product::where('is_active', true);
+
+        if (!$isGeneric) {
+            $query->where(function ($q) use ($cleanTerm, $lower) {
+                $q->where('name', 'like', "%{$cleanTerm}%")
+                    ->orWhere('code', 'like', "%{$cleanTerm}%")
+                    ->orWhere('description', 'like', "%{$cleanTerm}%")
+                    ->orWhere('category', 'like', "%{$cleanTerm}%");
+
+                // Busca por termos curtos/apelidos (ex: "tadala" -> "Tadalafila")
+                if (str_contains($lower, 'tadala')) {
+                    $q->orWhere('name', 'like', '%Tadalafila%');
+                } elseif (str_contains($lower, 'dipiro')) {
+                    $q->orWhere('name', 'like', '%Dipirona%');
+                } elseif (str_contains($lower, 'amoxi')) {
+                    $q->orWhere('name', 'like', '%Amoxicilina%');
+                } elseif (str_contains($lower, 'paracet')) {
+                    $q->orWhere('name', 'like', '%Paracetamol%');
+                } elseif (str_contains($lower, 'omepra')) {
+                    $q->orWhere('name', 'like', '%Omeprazol%');
+                } elseif (str_contains($lower, 'losart')) {
+                    $q->orWhere('name', 'like', '%Losartana%');
+                }
+            });
+        }
+
+        if ($category) {
+            $query->where('category', $category);
+        }
+
+        $products = $query->take(12)->get();
 
         if ($products->isEmpty()) {
             return [
                 'found' => false,
-                'message' => "Nenhum produto encontrado com o termo '{$term}'.",
+                'termo_buscado' => $rawTerm,
+                'message' => "Nenhum produto encontrado com o termo '{$rawTerm}'.",
             ];
         }
 
         return [
             'found' => true,
+            'total_encontrados' => $products->count(),
             'products' => $products->map(fn(Product $p) => [
                 'id' => $p->id,
                 'codigo' => $p->code,
@@ -281,6 +388,118 @@ class CommercialTools
                 'estoque_disponivel' => $p->stock_quantity,
                 'categoria' => $p->category,
             ])->toArray(),
+        ];
+    }
+
+    protected function executeListCatalog(): array
+    {
+        $products = Product::where('is_active', true)->with('prices')->orderBy('category')->orderBy('name')->get();
+
+        return [
+            'total_produtos' => $products->count(),
+            'catalogo' => $products->map(fn(Product $p) => [
+                'id' => $p->id,
+                'codigo' => $p->code,
+                'nome' => $p->name,
+                'apresentacao' => $p->presentation,
+                'categoria' => $p->category,
+                'estoque' => $p->stock_quantity,
+                'preco_base' => (float) $p->base_price,
+                'descontos_volume' => $p->prices->map(fn($pr) => [
+                    'qtd_min' => $pr->min_quantity,
+                    'preco_unitario' => (float) $pr->unit_price,
+                    'desconto_pct' => (float) $pr->discount_pct,
+                ])->toArray(),
+            ])->toArray(),
+        ];
+    }
+
+    protected function executeListBotRules(): array
+    {
+        $rules = \App\Models\BotRule::where('is_active', true)->orderBy('priority', 'asc')->get();
+
+        return [
+            'total_regras_ativas' => $rules->count(),
+            'regras' => $rules->map(fn($r) => [
+                'id' => $r->id,
+                'titulo' => $r->title,
+                'instrucao' => $r->content,
+                'prioridade' => $r->priority,
+            ])->toArray(),
+        ];
+    }
+
+    protected function executeAddBotRule(array $args): array
+    {
+        $content = trim($args['conteudo'] ?? '');
+        $title = trim($args['titulo'] ?? 'Instrução do Administrador');
+
+        if (empty($content)) {
+            return ['error' => 'Instrução não informada.'];
+        }
+
+        $rule = \App\Models\BotRule::create([
+            'title' => $title,
+            'content' => $content,
+            'is_active' => true,
+            'priority' => 10,
+        ]);
+
+        return [
+            'success' => true,
+            'mensagem' => "Regra '{$title}' cadastrada e ativada com sucesso!",
+            'regra_id' => $rule->id,
+        ];
+    }
+
+    protected function executeSystemStatus(): array
+    {
+        $rep = \App\Models\Representative::where('whatsapp_instance', 'farmaflow')->first() ?? \App\Models\Representative::first();
+        $ordersToday = Order::whereDate('created_at', today())->count();
+        $revenueToday = (float) Order::whereDate('created_at', today())->sum('total_amount');
+        $activeConvs = Conversation::whereDate('last_message_at', today())->count();
+        $totalContacts = Contact::count();
+        $quotesToday = Quote::whereDate('created_at', today())->count();
+
+        return [
+            'instancia_whatsapp' => $rep?->whatsapp_instance ?? 'farmaflow',
+            'status_conexao' => $rep?->whatsapp_status ?? 'conectado',
+            'pedidos_hoje' => $ordersToday,
+            'faturamento_hoje' => $revenueToday,
+            'cotacoes_hoje' => $quotesToday,
+            'conversas_hoje' => $activeConvs,
+            'total_contatos_sincronizados' => $totalContacts,
+        ];
+    }
+
+    protected function executeConsultCustomer(array $args): array
+    {
+        $term = trim($args['termo'] ?? '');
+        $company = Company::where('name', 'like', "%{$term}%")
+            ->orWhere('trade_name', 'like', "%{$term}%")
+            ->orWhere('document', 'like', "%{$term}%")
+            ->first();
+
+        if (!$company) {
+            return ['found' => false, 'message' => "Cliente '{$term}' não localizado."];
+        }
+
+        $orders = Order::where('company_id', $company->id)->latest()->take(3)->get();
+        $quotes = Quote::where('company_id', $company->id)->latest()->take(3)->get();
+
+        return [
+            'found' => true,
+            'cliente' => $company->trade_name ?? $company->name,
+            'documento' => $company->document,
+            'classificacao' => $company->classification,
+            'status' => $company->status,
+            'ultimos_pedidos' => $orders->map(fn($o) => [
+                'id' => $o->id,
+                'total' => (float) $o->total_amount,
+                'status' => $o->status,
+                'data' => $o->created_at->format('d/m/Y'),
+            ])->toArray(),
+            'cotacoes_abertas' => $quotes->whereIn('status', ['draft', 'sent'])->count(),
         ];
     }
 
