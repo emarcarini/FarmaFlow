@@ -135,12 +135,11 @@ class EvolutionApiService
         ];
 
         try {
-            $response = Http::withHeaders([
-                'apikey' => $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->timeout(10)->post($url, [
+            $payload = [
                 'enabled' => true,
                 'url' => $webhookUrl,
+                'webhook_by_events' => false,
+                'webhook_base64' => false,
                 'webhookByEvents' => false,
                 'events' => $events,
                 'webhook' => [
@@ -150,7 +149,12 @@ class EvolutionApiService
                     'base64' => false,
                     'events' => $events,
                 ],
-            ]);
+            ];
+
+            $response = Http::withHeaders([
+                'apikey' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(10)->post($url, $payload);
 
             Log::info("Webhook Evolution configurado para instancia [{$instanceName}] em [{$webhookUrl}]. Status: {$response->status()} Body: " . $response->body());
 
@@ -162,6 +166,32 @@ class EvolutionApiService
             ];
         } catch (\Throwable $e) {
             Log::warning("Falha ao configurar Webhook Evolution para instancia {$instanceName}: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Localizar o webhook ativo na instância na Evolution API (GET /webhook/find/{instance})
+     */
+    public function findWebhookForInstance(?string $instance = null): array
+    {
+        $instanceName = $instance ?: $this->instance;
+        $url = "{$this->baseUrl}/webhook/find/{$instanceName}";
+
+        try {
+            $response = Http::withHeaders([
+                'apikey' => $this->apiKey,
+            ])->timeout(5)->get($url);
+
+            return [
+                'success' => $response->successful(),
+                'status' => $response->status(),
+                'data' => $response->json(),
+            ];
+        } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
