@@ -17,6 +17,8 @@ class Conversation extends Model
         'channel',
         'external_id',
         'status',
+        'is_archived',
+        'archived_at',
         'handover_reason',
         'handover_at',
         'resumed_at',
@@ -27,6 +29,8 @@ class Conversation extends Model
     protected function casts(): array
     {
         return [
+            'is_archived' => 'boolean',
+            'archived_at' => 'datetime',
             'handover_at' => 'datetime',
             'resumed_at' => 'datetime',
             'last_message_at' => 'datetime',
@@ -73,6 +77,27 @@ class Conversation extends Model
         $this->update([
             'status' => 'ai_handling',
             'resumed_at' => now(),
+        ]);
+    }
+
+    public function isArchived(): bool
+    {
+        return (bool) $this->is_archived;
+    }
+
+    public function archive(): void
+    {
+        $this->update([
+            'is_archived' => true,
+            'archived_at' => now(),
+        ]);
+    }
+
+    public function unarchive(): void
+    {
+        $this->update([
+            'is_archived' => false,
+            'archived_at' => null,
         ]);
     }
 }

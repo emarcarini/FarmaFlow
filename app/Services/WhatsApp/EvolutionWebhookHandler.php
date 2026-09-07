@@ -91,19 +91,6 @@ class EvolutionWebhookHandler
                                     'is_opted_out' => false,
                                 ]);
                             }
-
-                            // Garante que a conversa existe para listar imediatamente no Inbox
-                            Conversation::firstOrCreate(
-                                [
-                                    'contact_id' => $contact->id,
-                                    'channel' => 'whatsapp',
-                                ],
-                                [
-                                    'representative_id' => $contact->representative_id ?? $targetRep?->id,
-                                    'status' => 'ai_handling',
-                                    'last_message_at' => now(),
-                                ]
-                            );
                         }
                     }
                 }

@@ -56,6 +56,9 @@ class DatabaseSeeder extends Seeder
         Representative::where('id', '!=', $representative->id)->delete();
         User::where('id', '!=', $adminUser->id)->delete();
 
+        // Limpeza de conversas fantasmas sem mensagens
+        \App\Models\Conversation::doesntHave('messages')->delete();
+
         // 2. Tags Comerciais
         $tags = [
             'Farmácia' => '#3b82f6',
@@ -432,5 +435,40 @@ class DatabaseSeeder extends Seeder
                 'max_quantity' => null,
             ]
         );
+
+        // 6. Regras Comerciais Dinâmicas do Assistente IA
+        $defaultRules = [
+            [
+                'title' => 'Política de Frete & Entrega',
+                'content' => 'Para pedidos acima de R$ 800,00 ou acima de 50 caixas, ofereça condição de frete cortesia com entrega em até 24h na Grande Vitória e 48h no interior.',
+                'is_active' => true,
+                'priority' => 1,
+            ],
+            [
+                'title' => 'Condição de Pagamento Faturado',
+                'content' => 'Clientes com cadastro ativo e bom histórico (classificação A ou B) podem faturar pedidos em 28 ou 35 dias no boleto bancário.',
+                'is_active' => true,
+                'priority' => 2,
+            ],
+            [
+                'title' => 'Alçada de Desconto Máxima',
+                'content' => 'Nunca prometa descontos acima de 15% sem autorização expressa do Emmanuel. Se o cliente insistir em desconto maior, informe que você vai encaminhar a proposta para o Emmanuel aprovar.',
+                'is_active' => true,
+                'priority' => 3,
+            ],
+            [
+                'title' => 'Campanha de Analgésicos',
+                'content' => 'Sempre que o cliente cotar Dipirona ou Paracetamol, mencione que para compras conjuntas acima de 100 unidades conseguimos aplicar preço de lote promocional.',
+                'is_active' => true,
+                'priority' => 4,
+            ],
+        ];
+
+        foreach ($defaultRules as $ruleData) {
+            \App\Models\BotRule::firstOrCreate(
+                ['title' => $ruleData['title']],
+                $ruleData
+            );
+        }
     }
 }

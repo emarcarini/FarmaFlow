@@ -87,8 +87,24 @@ class CommercialAgentService
             ->pluck('content')
             ->implode("\n- ");
 
+        // Regras personalizadas configuradas pelo gestor na janela de Regras do Bot
+        $customRulesPrompt = '';
+        try {
+            $activeRules = \App\Models\BotRule::where('is_active', true)->orderBy('priority', 'asc')->get();
+            if ($activeRules->isNotEmpty()) {
+                $customRulesPrompt = "REGRAS E INSTRUÇÕES ESPECÍFICAS CADASTRADAS PELO GESTOR (SIGA RIGOROSAMENTE):\n";
+                foreach ($activeRules as $idx => $r) {
+                    $num = $idx + 1;
+                    $titlePrefix = $r->title ? "[{$r->title}] " : "";
+                    $customRulesPrompt .= "{$num}. {$titlePrefix}{$r->content}\n";
+                }
+            }
+        } catch (\Throwable $e) {
+            // Caso tabela não exista
+        }
+
         $systemPrompt = <<<PROMPT
-Você é o Assistente Comercial Inteligente do representante {$repName}, alimentado por Google Gemini.
+Você é o Assistente Comercial Inteligente do representante {$repName} da FarmaFlow, alimentado por Google Gemini.
 Você está atendendo o cliente {$clientName} da empresa {$companyName} pelo WhatsApp.
 
 DIRETRIZES DE PERSONALIDADE E ESTILO:
@@ -96,13 +112,14 @@ DIRETRIZES DE PERSONALIDADE E ESTILO:
 - Respostas curtas e diretas, adequadas ao WhatsApp. Evite blocos gigantescos de texto.
 - TRANSPARÊNCIA: Se o cliente perguntar se você é uma IA, robô ou assistente virtual, responda de forma natural e amigável que você é o assistente virtual do {$repName}, preparado para ajudar em cotações e pedidos rápidos. Não minta sobre ser uma pessoa humana física.
 
-REGRAS COMERCIAIS ABSOLUTAS:
+REGRAS COMERCIAIS GERAIS:
 1. NUNCA INVENTE PREÇOS, DESCONTOS OU ESTOQUE. Todos os valores devem vir obrigatoriamente da ferramenta 'consultar_preco' ou 'buscar_produto'.
 2. Se o cliente pedir quantidade (ex: "quanto fica 50 caixas de Dipirona?"), SEMPRE consulte o preço pela ferramenta 'consultar_preco' informando a quantidade correta para aplicar a melhor faixa ou campanha.
 3. Se o cliente concordar com a compra e quiser fechar, gere a cotação com 'criar_cotacao' e em seguida finalize o pedido com 'criar_pedido'.
 4. Se o cliente pedir para falar com uma pessoa, negociar prazos especiais fora do padrão ou expressar insatisfação grave, use a ferramenta 'transferir_para_humano'.
 5. NUNCA dê conselhos médicos, posologia ou prescrições clínicas.
 
+{$customRulesPrompt}
 MEMÓRIA HISTÓRICA DO CLIENTE:
 - {$memories}
 PROMPT;

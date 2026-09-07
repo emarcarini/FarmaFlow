@@ -33,8 +33,18 @@ Route::middleware(['auth'])->group(function () {
 
     // 2. Inbox WhatsApp
     Route::get('/inbox', [InboxController::class, 'index'])->name('portal.inbox');
+    Route::get('/inbox/contacts', [InboxController::class, 'contacts'])->name('portal.inbox.contacts');
+    Route::post('/inbox/start', [InboxController::class, 'startConversation'])->name('portal.inbox.start');
     Route::post('/inbox/{conversation}/send', [InboxController::class, 'sendMessage'])->name('portal.inbox.send');
     Route::post('/inbox/{conversation}/handover', [InboxController::class, 'toggleHandover'])->name('portal.inbox.handover');
+    Route::post('/inbox/{conversation}/archive', [InboxController::class, 'archive'])->name('portal.inbox.archive');
+    Route::post('/inbox/{conversation}/unarchive', [InboxController::class, 'unarchive'])->name('portal.inbox.unarchive');
+
+    // Regras e Instruções Dinâmicas do Bot IA
+    Route::get('/bot-rules', [\App\Http\Controllers\Portal\BotRuleController::class, 'index'])->name('portal.bot-rules.index');
+    Route::post('/bot-rules', [\App\Http\Controllers\Portal\BotRuleController::class, 'store'])->name('portal.bot-rules.store');
+    Route::post('/bot-rules/{botRule}/toggle', [\App\Http\Controllers\Portal\BotRuleController::class, 'toggle'])->name('portal.bot-rules.toggle');
+    Route::delete('/bot-rules/{botRule}', [\App\Http\Controllers\Portal\BotRuleController::class, 'destroy'])->name('portal.bot-rules.destroy');
 
     // 3. CRM e Clientes
     Route::get('/crm', [CrmController::class, 'index'])->name('portal.crm');
