@@ -36,6 +36,11 @@ services:
     networks:
       - default
       - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.farmaflow-app.rule=Host(`farmaflow.npper.com`)"
+      - "traefik.http.services.farmaflow-app.loadbalancer.server.port=80"
 
   # 2. Banco de Dados MySQL 8.0
   mysql:
@@ -84,6 +89,11 @@ services:
     networks:
       - default
       - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=dokploy-network"
+      - "traefik.http.routers.farmaflow-evo.rule=Host(`evolution.npper.com`)"
+      - "traefik.http.services.farmaflow-evo.loadbalancer.server.port=8080"
 
 volumes:
   storage_data:
