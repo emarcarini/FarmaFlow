@@ -5,13 +5,13 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    ports:
-      - "${APP_PORT:-8000}:80"
+    expose:
+      - 80
     environment:
       - APP_NAME="FarmaFlow"
       - APP_ENV=${APP_ENV:-production}
       - APP_DEBUG=${APP_DEBUG:-false}
-      - APP_URL=${APP_URL:-http://localhost:8000}
+      - APP_URL=${APP_URL:-http://localhost}
       - DB_CONNECTION=mysql
       - DB_HOST=mysql
       - DB_PORT=3306
@@ -44,8 +44,8 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_farmaflow_secret123}
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - "${DB_EXTERNAL_PORT:-3306}:3306"
+    expose:
+      - 3306
 
   # 3. Redis para Filas, Cache e Idempotência
   redis:
@@ -53,15 +53,15 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
-    ports:
-      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+    expose:
+      - 6379
 
   # 4. Evolution API (WhatsApp Engine)
   evolution-api:
     image: evoapicloud/evolution-api:v2.2.0
     restart: unless-stopped
-    ports:
-      - "${EVOLUTION_PORT:-8080}:8080"
+    expose:
+      - 8080
     environment:
       - SERVER_URL=${EVOLUTION_PUBLIC_URL:-http://localhost:8080}
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-farmaflow_evolution_key_123}
