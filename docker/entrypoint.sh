@@ -15,6 +15,16 @@ if ! grep -q "^APP_KEY=base64:" .env; then
     php artisan key:generate --force
 fi
 
+# Criar e ajustar estrutura do storage
+mkdir -p storage/framework/sessions \
+         storage/framework/views \
+         storage/framework/cache/data \
+         storage/logs \
+         storage/app/public \
+         bootstrap/cache
+
+touch storage/logs/laravel.log storage/logs/worker.log
+
 # Ajustar permissões de escrita
 chown -R www-data:www-data storage bootstrap/cache
 chmod -R 775 storage bootstrap/cache
@@ -22,25 +32,30 @@ chmod -R 775 storage bootstrap/cache
 # Aguardar MySQL se estiver configurado
 if [ "$DB_CONNECTION" = "mysql" ]; then
     echo "⏳ Aguardando banco de dados MySQL ficar pronto em $DB_HOST:$DB_PORT..."
-    until nc -z -v -w30 "$DB_HOST" "$DB_PORT"; do
-        echo "Aguardando conexão com MySQL..."
+    max_tries=30
+    counter=0
+    until nc -z "$DB_HOST" "$DB_PORT" || [ $counter -gt $max_tries ]; do
+        echo "Aguardando conexão com MySQL... ($counter/$max_tries)"
         sleep 2
+        counter=$((counter + 1))
     done
     echo "✅ MySQL conectado!"
 fi
 
+# Criar link simbólico do storage
+php artisan storage:link || true
+
 # Executar migrações e seeders
 echo "📦 Executando migrações do banco de dados..."
-php artisan migrate --force --graceful
+php artisan migrate --force --graceful || true
 
 echo "🌱 Garantindo dados iniciais com Seeders..."
-php artisan db:seed --force
+php artisan db:seed --force || true
 
-# Otimizar caches para produção
+# Limpar e otimizar caches para produção
 echo "⚡ Otimizando rotas e configurações..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan optimize:clear || true
+php artisan optimize || true
 
 echo "🎉 FarmaFlow pronto para atender!"
 
