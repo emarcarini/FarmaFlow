@@ -21,16 +21,21 @@ class WhatsAppConnectionController extends Controller
     /**
      * Resolver o representante alvo com base no usuário logado ou parâmetro (para admin).
      */
-    protected function resolveRepresentative(Request $request): ?Representative
-    {
-        $user = Auth::user();
+     protected function resolveRepresentative(Request $request): ?Representative
+     {
+         $user = Auth::user();
 
-        if ($user->isAdmin() && $request->has('representative_id')) {
-            return Representative::find($request->input('representative_id'));
-        }
+         if ($user->isAdmin()) {
+             if ($request->has('representative_id')) {
+                 return Representative::find($request->input('representative_id'));
+             }
+             // Se for admin e não especificou, busca o primeiro representante com WhatsApp ou o primeiro ativo
+             return Representative::whereNotNull('whatsapp_instance')->first()
+                 ?? Representative::where('is_active', true)->first();
+         }
 
-        return $user->representative;
-    }
+         return $user->representative;
+     }
 
     /**
      * Retorna o status real da conexão do WhatsApp via Evolution API.
@@ -54,8 +59,16 @@ class WhatsAppConnectionController extends Controller
             ]);
         }
 
+        // Sincroniza webhooks para todas as instâncias existentes na Evolution API em background
+        try {
+            $this->evolutionApi->syncAllInstancesWebhooks();
+        } catch (\Throwable $e) {
+            // Silencioso
+        }
+
         $status['representative_name'] = $rep?->name ?? 'Geral';
         $status['representative_id'] = $rep?->id;
+        $status['all_representatives'] = Representative::select('id', 'name', 'code', 'whatsapp_instance', 'whatsapp_status')->get();
 
         return response()->json($status);
     }
@@ -91,5 +104,18 @@ class WhatsAppConnectionController extends Controller
         }
 
         return response()->json($result);
+    }
+
+    /**
+     * Sincroniza webhooks para todas as instâncias da Evolution API.
+     */
+    public function syncWebhooks(): JsonResponse
+    {
+        $results = $this->evolutionApi->syncAllInstancesWebhooks();
+        return response()->json([
+            'success' => true,
+            'message' => 'Webhooks sincronizados com sucesso em todas as instâncias.',
+            'results' => $results,
+        ]);
     }
 }

@@ -92,9 +92,17 @@ class EvolutionApiService
      */
     public function getWebhookUrl(): string
     {
-        $customUrl = config('services.evolution.webhook_url');
+        // 1. Variável explícita de webhook
+        $customUrl = env('EVOLUTION_WEBHOOK_URL', config('services.evolution.webhook_url'));
         if (!empty($customUrl)) {
             return $customUrl;
+        }
+
+        // 2. Se a URL da Evolution API for interna no Docker (ex: http://evolution-api:8080),
+        // o webhook DEVE ser o nome do container da aplicação (http://app/api/v1/webhooks/evolution)
+        // para garantir comunicação direta em rede interna sem depender de DNS externo ou Hairpin NAT.
+        if (str_contains($this->baseUrl, 'evolution-api') || str_contains($this->baseUrl, 'localhost') || str_contains($this->baseUrl, '127.0.0.1')) {
+            return 'http://app/api/v1/webhooks/evolution';
         }
 
         $appUrl = env('APP_URL');
@@ -128,6 +136,10 @@ class EvolutionApiService
                 'apikey' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->timeout(10)->post($url, [
+                'enabled' => true,
+                'url' => $webhookUrl,
+                'webhookByEvents' => false,
+                'events' => $events,
                 'webhook' => [
                     'enabled' => true,
                     'url' => $webhookUrl,
@@ -135,14 +147,9 @@ class EvolutionApiService
                     'base64' => false,
                     'events' => $events,
                 ],
-                'enabled' => true,
-                'url' => $webhookUrl,
-                'byEvents' => false,
-                'base64' => false,
-                'events' => $events,
             ]);
 
-            Log::info("Webhook Evolution configurado para instancia {$instanceName} em {$webhookUrl}: " . $response->body());
+            Log::info("Webhook Evolution configurado para instancia [{$instanceName}] em [{$webhookUrl}]. Status: {$response->status()} Body: " . $response->body());
 
             return [
                 'success' => $response->successful(),
@@ -157,6 +164,43 @@ class EvolutionApiService
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Sincronizar o Webhook em todas as instâncias cadastradas no sistema e existentes na Evolution API.
+     */
+    public function syncAllInstancesWebhooks(): array
+    {
+        $results = [];
+
+        // 1. Instância global padrão
+        $results['comercial'] = $this->setWebhookForInstance('comercial');
+
+        // 2. Todas as instâncias de Representantes
+        $reps = Representative::all();
+        foreach ($reps as $rep) {
+            $inst = $rep->getEffectiveWhatsAppInstance();
+            $results[$inst] = $this->setWebhookForInstance($inst);
+        }
+
+        // 3. Buscar todas as instâncias existentes na Evolution API e configurar
+        try {
+            $fetchUrl = "{$this->baseUrl}/instance/fetchInstances";
+            $res = Http::withHeaders(['apikey' => $this->apiKey])->timeout(5)->get($fetchUrl);
+            if ($res->successful()) {
+                $instances = $res->json() ?? [];
+                foreach ($instances as $instData) {
+                    $name = is_array($instData) ? ($instData['name'] ?? ($instData['instance']['instanceName'] ?? null)) : null;
+                    if ($name && !isset($results[$name])) {
+                        $results[$name] = $this->setWebhookForInstance($name);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Erro ao listar instâncias na Evolution API: " . $e->getMessage());
+        }
+
+        return $results;
     }
 
     /**

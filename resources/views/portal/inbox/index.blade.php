@@ -173,6 +173,42 @@
         if (msgContainer) {
             msgContainer.scrollTop = msgContainer.scrollHeight;
         }
+
+        // Auto-refresh suave do Inbox a cada 6 segundos para checar novas mensagens do WhatsApp
+        setInterval(() => {
+            const inputField = document.getElementById('msg-input');
+            // Não recarrega se o usuário estiver digitando no campo de texto
+            if (inputField && document.activeElement === inputField && inputField.value.trim() !== '') {
+                return;
+            }
+
+            fetch(window.location.href, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Atualiza a lista de conversas
+                const newFeed = doc.querySelector('.lg\\:col-span-4 .overflow-y-auto');
+                const curFeed = document.querySelector('.lg\\:col-span-4 .overflow-y-auto');
+                if (newFeed && curFeed && newFeed.innerHTML !== curFeed.innerHTML) {
+                    curFeed.innerHTML = newFeed.innerHTML;
+                    lucide.createIcons();
+                }
+
+                // Atualiza as mensagens se houver uma conversa aberta
+                const newMessages = doc.getElementById('messages-container');
+                const curMessages = document.getElementById('messages-container');
+                if (newMessages && curMessages && newMessages.innerHTML !== curMessages.innerHTML) {
+                    curMessages.innerHTML = newMessages.innerHTML;
+                    curMessages.scrollTop = curMessages.scrollHeight;
+                    lucide.createIcons();
+                }
+            })
+            .catch(() => {});
+        }, 5000);
     });
 </script>
 @endsection

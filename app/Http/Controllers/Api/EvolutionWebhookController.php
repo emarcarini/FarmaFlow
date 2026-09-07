@@ -27,12 +27,13 @@ class EvolutionWebhookController extends Controller
             'sender' => $payload['data']['key']['remoteJid'] ?? ($payload['sender'] ?? null),
         ]);
 
-        // Opcional: Validação de chave de segurança / secret configurado
+        // Validação de chave de segurança se configurada e presente
         $secret = config('services.evolution.webhook_secret', env('EVOLUTION_WEBHOOK_SECRET'));
-        $providedSecret = $request->header('x-webhook-secret') ?? $request->query('secret');
+        $providedSecret = $request->header('x-webhook-secret') ?? $request->query('secret') ?? $request->header('apikey');
 
-        if (!empty($secret) && $providedSecret !== $secret) {
-            Log::warning("Webhook Evolution API rejeitado: secret inválido");
+        // Rejeita apenas se um secret foi explicitamente exigido e o client enviou um secret incorreto
+        if (!empty($secret) && !empty($providedSecret) && $providedSecret !== $secret) {
+            Log::warning("Webhook Evolution API rejeitado: secret fornecido inválido");
             return response()->json(['error' => 'Acesso não autorizado ao webhook'], 401);
         }
 
