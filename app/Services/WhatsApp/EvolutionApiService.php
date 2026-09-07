@@ -3,7 +3,10 @@
 namespace App\Services\WhatsApp;
 
 use App\Models\AuditLog;
+use App\Models\Representative;
+use App\Models\User;
 use App\Services\Audit\AuditLogService;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +21,37 @@ class EvolutionApiService
         $this->baseUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL', 'http://evolution-api:8080')), '/');
         $this->apiKey = config('services.evolution.key', env('EVOLUTION_API_KEY', 'farmaflow_evolution_key_123'));
         $this->instance = config('services.evolution.instance', env('EVOLUTION_INSTANCE', 'comercial'));
+    }
+
+    /**
+     * Definir explicitamente o nome da instância a ser manipulada.
+     */
+    public function setInstance(string $instance): self
+    {
+        $this->instance = trim($instance);
+        return $this;
+    }
+
+    /**
+     * Configurar o serviço para a instância do representante específico.
+     */
+    public function forRepresentative(?Representative $representative): self
+    {
+        if ($representative) {
+            $this->instance = $representative->getEffectiveWhatsAppInstance();
+        }
+        return $this;
+    }
+
+    /**
+     * Configurar o serviço para a instância do usuário autenticado.
+     */
+    public function forUser(?User $user): self
+    {
+        if ($user && $user->representative) {
+            return $this->forRepresentative($user->representative);
+        }
+        return $this;
     }
 
     /**
@@ -170,6 +204,7 @@ class EvolutionApiService
                 $data = $response->json();
                 return [
                     'success' => true,
+                    'instance' => $this->instance,
                     'base64' => $data['base64'] ?? null,
                     'code' => $data['code'] ?? null,
                     'pairingCode' => $data['pairingCode'] ?? null,
@@ -179,12 +214,14 @@ class EvolutionApiService
 
             return [
                 'success' => false,
+                'instance' => $this->instance,
                 'message' => 'Não foi possível gerar o QR Code no momento.',
                 'details' => $response->json(),
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
+                'instance' => $this->instance,
                 'message' => 'Erro ao conectar à Evolution API: ' . $e->getMessage(),
             ];
         }
@@ -240,7 +277,7 @@ class EvolutionApiService
             $data = $response->json() ?? [];
 
             if ($response->successful()) {
-                Log::info("Mensagem WhatsApp enviada com sucesso para {$formattedPhone}");
+                Log::info("Mensagem WhatsApp enviada com sucesso para {$formattedPhone} via instância {$this->instance}");
                 return [
                     'success' => true,
                     'status_code' => $statusCode,
@@ -249,7 +286,7 @@ class EvolutionApiService
                 ];
             }
 
-            Log::warning("Falha ao enviar mensagem WhatsApp para {$formattedPhone}", [
+            Log::warning("Falha ao enviar mensagem WhatsApp para {$formattedPhone} via instância {$this->instance}", [
                 'status' => $statusCode,
                 'response' => $data,
             ]);
@@ -262,6 +299,7 @@ class EvolutionApiService
         } catch (\Throwable $e) {
             Log::error("Exceção ao comunicar com Evolution API: " . $e->getMessage(), [
                 'phone' => $formattedPhone,
+                'instance' => $this->instance,
             ]);
 
             return [

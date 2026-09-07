@@ -48,12 +48,46 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Carlos Silva',
                 'phone' => '5511988887777',
                 'code' => 'REP-01',
+                'whatsapp_instance' => 'rep_carlos',
+                'whatsapp_status' => 'disconnected',
                 'commission_rate' => 5.00,
                 'max_discount_pct' => 15.00,
                 'is_active' => true,
                 'settings' => [
                     'bot_name' => 'Assistente do Carlos',
                     'greeting' => 'Opa, tudo bem? Sou o assistente comercial do Carlos.',
+                    'allow_ai_quotes' => true,
+                    'notify_on_handover' => true,
+                ],
+            ]
+        );
+
+        $repJulianaUser = User::firstOrCreate(
+            ['email' => 'juliana@comercial.com.br'],
+            [
+                'name' => 'Juliana Mendes',
+                'password' => Hash::make('senha123'),
+                'role' => 'representative',
+                'phone' => '5511977776666',
+                'is_active' => true,
+            ]
+        );
+
+        $repJuliana = Representative::firstOrCreate(
+            ['email' => 'juliana@comercial.com.br'],
+            [
+                'user_id' => $repJulianaUser->id,
+                'name' => 'Juliana Mendes',
+                'phone' => '5511977776666',
+                'code' => 'REP-02',
+                'whatsapp_instance' => 'rep_juliana',
+                'whatsapp_status' => 'disconnected',
+                'commission_rate' => 6.00,
+                'max_discount_pct' => 12.00,
+                'is_active' => true,
+                'settings' => [
+                    'bot_name' => 'Assistente da Juliana',
+                    'greeting' => 'Olá! Sou a assistente virtual da Juliana Mendes.',
                     'allow_ai_quotes' => true,
                     'notify_on_handover' => true,
                 ],

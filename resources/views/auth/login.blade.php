@@ -88,16 +88,21 @@
                 <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 text-center mb-3">
                     Acesso Rápido de Demonstração
                 </p>
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <button type="button" onclick="fillCreds('carlos@comercial.com.br', 'senha123')"
-                        class="p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/40 text-left transition-all">
-                        <p class="font-bold text-slate-200">Carlos Silva</p>
-                        <p class="text-[10px] text-indigo-400">Representante</p>
-                    </button>
+                <div class="grid grid-cols-3 gap-2 text-xs">
                     <button type="button" onclick="fillCreds('admin@comercial.com.br', 'senha123')"
-                        class="p-2.5 rounded-xl bg-slate-950/60 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/40 text-left transition-all">
-                        <p class="font-bold text-slate-200">Administrador</p>
-                        <p class="text-[10px] text-cyan-400">Gestão Geral</p>
+                        class="p-2 rounded-xl bg-slate-950/60 hover:bg-amber-600/20 border border-slate-800 hover:border-amber-500/40 text-left transition-all">
+                        <p class="font-bold text-slate-200 text-[11px] truncate">Admin</p>
+                        <p class="text-[9px] text-amber-400 font-medium">Gestão Geral</p>
+                    </button>
+                    <button type="button" onclick="fillCreds('carlos@comercial.com.br', 'senha123')"
+                        class="p-2 rounded-xl bg-slate-950/60 hover:bg-indigo-600/20 border border-slate-800 hover:border-indigo-500/40 text-left transition-all">
+                        <p class="font-bold text-slate-200 text-[11px] truncate">Carlos</p>
+                        <p class="text-[9px] text-indigo-400 font-medium">Rep #1</p>
+                    </button>
+                    <button type="button" onclick="fillCreds('juliana@comercial.com.br', 'senha123')"
+                        class="p-2 rounded-xl bg-slate-950/60 hover:bg-cyan-600/20 border border-slate-800 hover:border-cyan-500/40 text-left transition-all">
+                        <p class="font-bold text-slate-200 text-[11px] truncate">Juliana</p>
+                        <p class="text-[9px] text-cyan-400 font-medium">Rep #2</p>
                     </button>
                 </div>
             </div>

@@ -49,4 +49,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/whatsapp/status', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'status'])->name('portal.whatsapp.status');
     Route::get('/whatsapp/qrcode', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'getQrCode'])->name('portal.whatsapp.qrcode');
     Route::post('/whatsapp/disconnect', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'disconnect'])->name('portal.whatsapp.disconnect');
+
+    // 9. Módulo Administrativo (Apenas Admin)
+    Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/representantes', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'index'])->name('representatives.index');
+        Route::post('/representantes', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'store'])->name('representatives.store');
+        Route::put('/representantes/{representative}', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'update'])->name('representatives.update');
+        Route::post('/representantes/{representative}/toggle', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'toggleStatus'])->name('representatives.toggle');
+        Route::delete('/representantes/{representative}', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'destroy'])->name('representatives.destroy');
+    });
 });

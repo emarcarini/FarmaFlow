@@ -17,6 +17,10 @@ class Representative extends Model
         'email',
         'phone',
         'code',
+        'whatsapp_instance',
+        'whatsapp_phone',
+        'whatsapp_status',
+        'whatsapp_connected_at',
         'commission_rate',
         'max_discount_pct',
         'is_active',
@@ -30,7 +34,20 @@ class Representative extends Model
             'max_discount_pct' => 'decimal:2',
             'is_active' => 'boolean',
             'settings' => 'array',
+            'whatsapp_connected_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Retorna o nome da instância do WhatsApp na Evolution API.
+     */
+    public function getEffectiveWhatsAppInstance(): string
+    {
+        if (!empty($this->whatsapp_instance)) {
+            return $this->whatsapp_instance;
+        }
+
+        return 'rep_' . ($this->code ? strtolower(str_replace(['-', ' '], '_', $this->code)) : $this->id);
     }
 
     public function user(): BelongsTo

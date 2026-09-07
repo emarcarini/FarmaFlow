@@ -10,34 +10,70 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Quote;
 use App\Models\Task;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
     public function index(): View
     {
-        $monthlyOrders = Order::whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered'])
-            ->get();
+        $user = Auth::user();
+        $isRep = $user->isRepresentative();
+        $repId = $user->representative?->id;
 
+        // 1. Pedidos do Mês
+        $ordersQuery = Order::whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->whereIn('status', ['confirmed', 'processing', 'shipped', 'delivered']);
+
+        if ($isRep && $repId) {
+            $ordersQuery->where('representative_id', $repId);
+        }
+
+        $monthlyOrders = $ordersQuery->get();
         $monthlyRevenue = (float) $monthlyOrders->sum('total_amount');
         $ordersCount = $monthlyOrders->count();
-        $monthlyGoal = 150000.00; // Meta padrão R$ 150k
+        $monthlyGoal = $isRep ? 60000.00 : 250000.00; // Meta individual R$ 60k, Global R$ 250k
         $goalProgress = min(100, round(($monthlyRevenue / $monthlyGoal) * 100, 1));
 
-        $activeQuotesCount = Quote::whereIn('status', ['draft', 'sent'])->count();
-        $activeQuotesAmount = (float) Quote::whereIn('status', ['draft', 'sent'])->sum('total_amount');
+        // 2. Cotações Ativas
+        $quotesQuery = Quote::whereIn('status', ['draft', 'sent']);
+        if ($isRep && $repId) {
+            $quotesQuery->where('representative_id', $repId);
+        }
+        $activeQuotesCount = $quotesQuery->count();
+        $activeQuotesAmount = (float) $quotesQuery->sum('total_amount');
 
-        $activeCompaniesCount = Company::where('status', 'active')->count();
-        $atRiskCompaniesCount = Company::where('status', 'at_risk')->count();
+        // 3. Empresas Ativas / Em Risco
+        $companiesQuery = Company::query();
+        if ($isRep && $repId) {
+            $companiesQuery->where('representative_id', $repId);
+        }
+        $activeCompaniesCount = (clone $companiesQuery)->where('status', 'active')->count();
+        $atRiskCompaniesCount = (clone $companiesQuery)->where('status', 'at_risk')->count();
 
-        $pendingTasksCount = Task::where('status', 'pending')->count();
-        $overdueTasksCount = Task::where('status', 'pending')->where('due_date', '<', now())->count();
+        // 4. Tarefas e Follow-ups
+        $tasksQuery = Task::where('status', 'pending');
+        if ($isRep && $repId) {
+            $tasksQuery->where('representative_id', $repId);
+        }
+        $pendingTasksCount = (clone $tasksQuery)->count();
+        $overdueTasksCount = (clone $tasksQuery)->where('due_date', '<', now())->count();
 
-        $handoverConversationsCount = Conversation::where('status', 'human_takeover')->count();
+        // 5. Conversas em Handover
+        $convQuery = Conversation::where('status', 'human_takeover');
+        if ($isRep && $repId) {
+            $convQuery->where('representative_id', $repId);
+        }
+        $handoverConversationsCount = $convQuery->count();
 
-        $recentOrders = Order::with('company', 'contact')->latest()->take(6)->get();
+        // 6. Pedidos Recentes
+        $recentOrdersQuery = Order::with('company', 'contact')->latest();
+        if ($isRep && $repId) {
+            $recentOrdersQuery->where('representative_id', $repId);
+        }
+        $recentOrders = $recentOrdersQuery->take(6)->get();
+
         $topProducts = Product::where('is_active', true)->take(5)->get();
         $activeCampaigns = CommercialCampaign::where('is_active', true)
             ->where('starts_at', '<=', now())
@@ -59,7 +95,8 @@ class DashboardController extends Controller
             'handoverConversationsCount',
             'recentOrders',
             'topProducts',
-            'activeCampaigns'
+            'activeCampaigns',
+            'isRep'
         ));
     }
 }

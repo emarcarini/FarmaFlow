@@ -59,18 +59,33 @@ class EvolutionWebhookHandler
             return ['status' => 'empty_content'];
         }
 
-        return DB::transaction(function () use ($phone, $messageId, $messageText, $data) {
-            // 2. Localizar ou criar Contato
+        // 2. Identificar a instância do representante no payload
+        $instanceName = $payload['instance'] ?? ($data['instance'] ?? null);
+        $targetRep = null;
+        if ($instanceName) {
+            $targetRep = Representative::where('whatsapp_instance', $instanceName)
+                ->orWhere('code', $instanceName)
+                ->orWhere('id', str_replace('rep_', '', $instanceName))
+                ->first();
+        }
+        if (!$targetRep) {
+            $targetRep = Representative::where('is_active', true)->first();
+        }
+
+        // Configura o serviço de WhatsApp para responder usando a instância correta do representante
+        $this->whatsappService->forRepresentative($targetRep);
+
+        return DB::transaction(function () use ($phone, $messageId, $messageText, $data, $targetRep) {
+            // 3. Localizar ou criar Contato
             $contact = Contact::where('phone', $phone)
                 ->orWhere('phone', 'like', "%" . substr($phone, -8))
                 ->first();
 
             if (!$contact) {
-                $defaultRep = Representative::where('is_active', true)->first();
                 $contact = Contact::create([
                     'name' => $data['pushName'] ?? "Cliente WhatsApp ({$phone})",
                     'phone' => $phone,
-                    'representative_id' => $defaultRep?->id,
+                    'representative_id' => $targetRep?->id,
                 ]);
 
                 ConsentPreference::create([
@@ -78,22 +93,24 @@ class EvolutionWebhookHandler
                     'channel' => 'whatsapp',
                     'is_opted_out' => false,
                 ]);
+            } elseif (!$contact->representative_id && $targetRep) {
+                $contact->update(['representative_id' => $targetRep->id]);
             }
 
-            // 3. Localizar ou criar Conversa
+            // 4. Localizar ou criar Conversa
             $conversation = Conversation::firstOrCreate(
                 [
                     'contact_id' => $contact->id,
                     'channel' => 'whatsapp',
                 ],
                 [
-                    'representative_id' => $contact->representative_id,
+                    'representative_id' => $contact->representative_id ?? $targetRep?->id,
                     'status' => 'ai_handling',
                     'last_message_at' => now(),
                 ]
             );
 
-            // 4. Salvar mensagem recebida (Idempotência garantida pelo external_id)
+            // 5. Salvar mensagem recebida (Idempotência garantida pelo external_id)
             $inboundMessage = Message::create([
                 'conversation_id' => $conversation->id,
                 'direction' => 'inbound',
@@ -107,7 +124,7 @@ class EvolutionWebhookHandler
 
             $conversation->update(['last_message_at' => now()]);
 
-            // 5. TRATAMENTO DE OPT-OUT LGPD ("PARAR", "SAIR", "CANCELAR")
+            // 6. TRATAMENTO DE OPT-OUT LGPD ("PARAR", "SAIR", "CANCELAR")
             $upper = mb_strtoupper(trim($messageText), 'UTF-8');
             if (in_array($upper, ['PARAR', 'SAIR', 'CANCELAR', 'OPT-OUT', 'DESCADASTRO', 'NÃO ENVIAR MAIS'])) {
                 ConsentPreference::updateOrCreate(
@@ -134,19 +151,19 @@ class EvolutionWebhookHandler
                 return ['status' => 'opt_out_processed'];
             }
 
-            // 6. Se o cliente estiver com opt-out ativo, não prosseguir
+            // 7. Se o cliente estiver com opt-out ativo, não prosseguir
             if ($contact->isOptedOut('whatsapp')) {
                 Log::info("Contato {$contact->id} possui opt-out de WhatsApp ativo. IA ignorando.");
                 return ['status' => 'opted_out_ignored'];
             }
 
-            // 7. Se a conversa estiver em atendimento humano, apenas registrar a mensagem
+            // 8. Se a conversa estiver em atendimento humano, apenas registrar a mensagem
             if ($conversation->isHumanTakeover()) {
                 Log::info("Conversa {$conversation->id} em atendimento humano. Mensagem salva.");
                 return ['status' => 'human_takeover_recorded'];
             }
 
-            // 8. Chamar Agente de IA Comercial
+            // 9. Chamar Agente de IA Comercial
             $aiResponse = $this->agentService->handleCustomerMessage($conversation, $messageText);
 
             return [

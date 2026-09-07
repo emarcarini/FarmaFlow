@@ -84,8 +84,30 @@
 
                 <!-- Navigation Section -->
                 <div class="flex-1 overflow-y-auto px-4 py-5 space-y-6">
+                    <!-- Admin Navigation Group -->
+                    @if(auth()->user()->isAdmin())
+                        <div>
+                            <span class="px-3 text-[11px] font-bold tracking-wider text-amber-400 uppercase flex items-center gap-1.5">
+                                <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+                                <span>Administração</span>
+                            </span>
+                            <nav class="mt-2 space-y-1">
+                                <a href="{{ route('admin.representatives.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all group {{ request()->routeIs('admin.representatives*') ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25' : 'text-slate-400 hover:text-white hover:bg-slate-800/50' }}">
+                                    <div class="flex items-center gap-3">
+                                        <i data-lucide="users" class="w-4 h-4 {{ request()->routeIs('admin.representatives*') ? 'text-white' : 'text-amber-400 group-hover:text-white' }}"></i>
+                                        <span>Representantes</span>
+                                    </div>
+                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">Admin</span>
+                                </a>
+                            </nav>
+                        </div>
+                    @endif
+
+                    <!-- Commercial & Sales Navigation -->
                     <div>
-                        <span class="px-3 text-[11px] font-bold tracking-wider text-slate-500 uppercase">Gestão & Vendas</span>
+                        <span class="px-3 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                            {{ auth()->user()->isAdmin() ? 'Visão Consolidada' : 'Minha Carteira' }}
+                        </span>
                         <nav class="mt-2 space-y-1">
                             <a href="{{ route('portal.dashboard') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all group {{ request()->routeIs('portal.dashboard') ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25' : 'text-slate-400 hover:text-white hover:bg-slate-800/50' }}">
                                 <i data-lucide="layout-grid" class="w-4 h-4 {{ request()->routeIs('portal.dashboard') ? 'text-white' : 'text-slate-400 group-hover:text-white' }}"></i>
@@ -98,7 +120,7 @@
                                     <span>Inbox WhatsApp</span>
                                 </div>
                                 <span id="sidebar-wa-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                                    Status
+                                    WhatsApp
                                 </span>
                             </a>
 
@@ -157,7 +179,13 @@
                             </div>
                             <div class="truncate">
                                 <p class="text-xs font-bold text-slate-200 truncate">{{ auth()->user()->name ?? 'Usuário' }}</p>
-                                <p class="text-[11px] text-slate-400 capitalize">{{ auth()->user()->role ?? 'Representante' }}</p>
+                                <div class="flex items-center gap-1.5 mt-0.5">
+                                    @if(auth()->user()->isAdmin())
+                                        <span class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">Admin</span>
+                                    @else
+                                        <span class="text-[10px] font-semibold text-slate-400">{{ auth()->user()->representative?->code ?? 'Rep' }}</span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         <form method="POST" action="/logout">
@@ -240,20 +268,24 @@
                     <i data-lucide="qr-code" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h3 class="font-display font-bold text-lg text-white">Conexão WhatsApp (Evolution API)</h3>
-                    <p class="text-xs text-slate-400">Pareie seu smartphone para envio e recebimento em tempo real.</p>
+                    <h3 class="font-display font-bold text-lg text-white">Conexão WhatsApp do Assistente</h3>
+                    <p class="text-xs text-slate-400">Pareie o WhatsApp individual do seu assistente comercial.</p>
                 </div>
             </div>
 
             <!-- Status Info Card -->
             <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
                 <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Titular / Representante:</span>
+                    <span id="modal-wa-rep-name" class="font-bold text-slate-200">Carregando...</span>
+                </div>
+                <div class="flex justify-between items-center">
                     <span class="text-slate-400">Status da Instância:</span>
                     <span id="modal-wa-state" class="font-bold font-mono text-amber-400">Verificando...</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-slate-400">Instância:</span>
-                    <span id="modal-wa-instance" class="font-mono text-slate-200">comercial</span>
+                    <span class="text-slate-400">Instância Dedicada:</span>
+                    <span id="modal-wa-instance" class="font-mono text-indigo-300">comercial</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-slate-400">Servidor Evolution:</span>
@@ -310,8 +342,10 @@
                 const modalState = document.getElementById('modal-wa-state');
                 const modalInstance = document.getElementById('modal-wa-instance');
                 const modalServer = document.getElementById('modal-wa-server');
+                const modalRepName = document.getElementById('modal-wa-rep-name');
                 const disconnectBtn = document.getElementById('modal-disconnect-btn');
 
+                if (modalRepName) modalRepName.innerText = data.representative_name || '{{ auth()->user()->name }}';
                 if (modalInstance) modalInstance.innerText = data.instance || 'comercial';
                 if (modalServer) modalServer.innerText = data.server_url || 'http://evolution-api:8080';
 
