@@ -97,42 +97,7 @@
 
                 <!-- Markdown Formatted Content Body -->
                 <div id="doc-content" class="catppuccin-prose text-[#cdd6f4] text-sm leading-relaxed space-y-6">
-                    @php
-                        // Processamento avançado do markdown com suporte a Admonitions do Vitepress (::: tip, ::: info, etc)
-                        $rawMarkdown = $activeTopic['content'];
-
-                        // 1. Tip Callout
-                        $rawMarkdown = preg_replace(
-                            '/:::\s*tip\s*([^\n]*)\n(.*?)\n:::/s',
-                            '<div class="catppuccin-callout tip my-6 p-4 rounded-2xl bg-[#a6e3a1]/10 border border-[#a6e3a1]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#a6e3a1] text-xs font-mono uppercase mb-2"><i data-lucide="lightbulb" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
-                            $rawMarkdown
-                        );
-
-                        // 2. Info Callout
-                        $rawMarkdown = preg_replace(
-                            '/:::\s*info\s*([^\n]*)\n(.*?)\n:::/s',
-                            '<div class="catppuccin-callout info my-6 p-4 rounded-2xl bg-[#89b4fa]/10 border border-[#89b4fa]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#89b4fa] text-xs font-mono uppercase mb-2"><i data-lucide="info" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
-                            $rawMarkdown
-                        );
-
-                        // 3. Warning Callout
-                        $rawMarkdown = preg_replace(
-                            '/:::\s*warning\s*([^\n]*)\n(.*?)\n:::/s',
-                            '<div class="catppuccin-callout warning my-6 p-4 rounded-2xl bg-[#f9e2af]/10 border border-[#f9e2af]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#f9e2af] text-xs font-mono uppercase mb-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
-                            $rawMarkdown
-                        );
-
-                        // 4. Danger Callout
-                        $rawMarkdown = preg_replace(
-                            '/:::\s*danger\s*([^\n]*)\n(.*?)\n:::/s',
-                            '<div class="catppuccin-callout danger my-6 p-4 rounded-2xl bg-[#f38ba8]/10 border border-[#f38ba8]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#f38ba8] text-xs font-mono uppercase mb-2"><i data-lucide="shield-alert" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
-                            $rawMarkdown
-                        );
-
-                        $parsedHtml = Illuminate\Support\Str::markdown($rawMarkdown);
-                    @endphp
-
-                    {!! $parsedHtml !!}
+                    {!! $activeTopic['html_content'] !!}
                 </div>
             </article>
 

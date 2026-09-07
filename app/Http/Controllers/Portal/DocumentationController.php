@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class DocumentationController extends Controller
@@ -20,7 +21,7 @@ class DocumentationController extends Controller
                 'badge' => 'Guia',
                 'icon' => 'terminal',
                 'summary' => 'Guia passo a passo para instalação, variáveis de ambiente e deploy no Dokploy/Docker.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Instalação e Configuração
 
 O **FarmaFlow** foi projetado para execução escalável e resiliente em contêineres Docker, compatível com orquestradores modernos como **Dokploy**, **Coolify** ou **Docker Compose** nativo.
@@ -78,8 +79,8 @@ REDIS_PORT=6379
 
 # Evolution API v2 (WhatsApp Engine)
 EVOLUTION_API_URL=http://evolution-api:8080
-EVOLUTION_API_KEY=B6D711FCDE4D4FD5936544120E713976
-EVOLUTION_INSTANCE_NAME=farmaflow-oficial
+EVOLUTION_API_KEY=farmaflow_evolution_key_123
+EVOLUTION_INSTANCE=comercial
 
 # Google Gemini AI
 GEMINI_API_KEY=AIzaSySuaChaveGoogleGeminiAqui
@@ -102,7 +103,7 @@ O contêiner `app` executa automaticamente as migrações, seeds de demonstraç�
 - **Representante:** `carlos@comercial.com.br` / `senha123`
 - **Administrador:** `admin@comercial.com.br` / `senha123`
 :::
-MD,
+MD
             ],
             'visao-geral' => [
                 'title' => 'Visão Geral da Plataforma',
@@ -110,7 +111,7 @@ MD,
                 'badge' => 'Arquitetura',
                 'icon' => 'sparkles',
                 'summary' => 'O que é o FarmaFlow, filosofia de desenvolvimento e fontes da verdade.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Visão Geral da Plataforma
 
 O **FarmaFlow** é uma solução completa de **Inteligência Comercial e Relacionamento via WhatsApp** desenvolvida especialmente para representantes de distribuidoras farmacêuticas e laboratórios.
@@ -148,7 +149,7 @@ O representante possui um painel completo para:
 - Assumir qualquer atendimento com 1 clique (*Human Handoff*).
 - Aprovar alçadas especiais de desconto que ultrapassam os limites automáticos.
 - Receber alertas diários de recompra e cotações estagnadas.
-MD,
+MD
             ],
             'evolution-whatsapp' => [
                 'title' => 'WhatsApp & Evolution API v2',
@@ -156,7 +157,7 @@ MD,
                 'badge' => 'API v2',
                 'icon' => 'message-circle',
                 'summary' => 'Conexão de instâncias WhatsApp, webhook handling e envio de mensagens.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Conexão WhatsApp & Evolution API v2
 
 A comunicação entre o FarmaFlow e o WhatsApp ocorre através da **Evolution API v2**, utilizando sessões gerenciadas em Redis para alta disponibilidade.
@@ -184,19 +185,6 @@ O FarmaFlow escuta eventos no endpoint `/api/v1/webhook/whatsapp`. Cada mensagem
                               [Audit Logging]           [AI Intent Engine]
 ```
 
-### Configuração do Webhook na Evolution API:
-```json
-{
-  "url": "https://farmaflow.npper.com/api/v1/webhook/whatsapp",
-  "webhook_by_events": false,
-  "events": [
-    "MESSAGES_UPSERT",
-    "MESSAGES_UPDATE",
-    "CONNECTION_UPDATE"
-  ]
-}
-```
-
 ---
 
 ## 2. Handoff Humano vs Robô
@@ -209,7 +197,7 @@ Cada conversa possui um atributo `is_robot_active` no banco de dados.
 ::: warning ATENÇÃO AO ASSUMIR CHATS
 Ao clicar em **"Assumir Atendimento"** no portal, o robô é pausado instantaneamente para aquele contato, evitando respostas cruzadas.
 :::
-MD,
+MD
             ],
             'ia-gemini' => [
                 'title' => 'Motor de IA (Gemini 2.0 Flash)',
@@ -217,7 +205,7 @@ MD,
                 'badge' => 'Google Gemini',
                 'icon' => 'bot',
                 'summary' => 'Como a IA interpreta intenções, consulta catálogo e aplica salvaguardas.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Motor de IA: Google Gemini 2.0 Flash
 
 O FarmaFlow utiliza o modelo **Gemini 2.0 Flash**, combinando velocidade ultrarrápida de inferência (inferior a 800ms) com alta fidelidade a regras de negócio e formatações estruturadas (JSON Function Calling).
@@ -246,7 +234,7 @@ O prompt do sistema é injetado dinamicamente com as seguintes seções:
 > **Cliente:** *"O representante do concorrente me fez por R$ 5,00 a unidade. Faz igual?"*
 >
 > **FarmaFlow IA:** *"Entendo perfeitamente, Celso! A nossa tabela autorizada para esse lote é de R$ 6,80 para pedidos acima de 50 caixas. Posso registrar uma solicitação especial de alçada de desconto para o Carlos (nosso representante) aprovar para você. Quer que eu encaminhe?"*
-MD,
+MD
             ],
             'crm-rfm' => [
                 'title' => 'CRM Comercial & Score RFM',
@@ -254,7 +242,7 @@ MD,
                 'badge' => 'Preditivo',
                 'icon' => 'users-2',
                 'summary' => 'Metodologia de cálculo do Score RFM (Recência, Frequência e Valor Monetário).',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # CRM Comercial & Score RFM
 
 O FarmaFlow implementa um modelo matemático proprietário de **Score RFM (Recency, Frequency, Monetary)** adaptado para a distribuição farmacêutica B2B.
@@ -263,9 +251,9 @@ O FarmaFlow implementa um modelo matemático proprietário de **Score RFM (Recen
 
 ## Fórmula de Composição do Score (0 a 100)
 
-$$\text{Score Total} = (R \times 0.40) + (F \times 0.30) + (M \times 0.30)$$
+Score Total = (R * 0.40) + (F * 0.30) + (M * 0.30)
 
-### 1. Recência ($R$ - Peso 40%)
+### 1. Recência (R - Peso 40%)
 Mede o intervalo em dias desde o último pedido faturado:
 - **0 a 15 dias:** 100 pontos
 - **16 a 30 dias:** 80 pontos
@@ -273,10 +261,10 @@ Mede o intervalo em dias desde o último pedido faturado:
 - **61 a 90 dias:** 25 pontos
 - **> 90 dias:** 0 pontos (Cliente considerado *at_risk* ou inativo)
 
-### 2. Frequência ($F$ - Peso 30%)
+### 2. Frequência (F - Peso 30%)
 Quantidade de compras nos últimos 180 dias em relação à média da carteira.
 
-### 3. Monetário ($M$ - Peso 30%)
+### 3. Monetário (M - Peso 30%)
 Volume financeiro acumulado no ano corrente frente à meta da classificação do cliente (A, B ou C).
 
 ---
@@ -288,7 +276,7 @@ Volume financeiro acumulado no ano corrente frente à meta da classificação do
 | **Classe A** | Redes de Farmácias e Hospitais | Semanal / Quinzenal | 85 - 100 |
 | **Classe B** | Farmácias Independentes | Mensal | 60 - 84 |
 | **Classe C** | Pequenos Varejos e Clínicas | Trimestral / Esporádico | 0 - 59 |
-MD,
+MD
             ],
             'catalogo-precos' => [
                 'title' => 'Catálogo & Preços Determinísticos',
@@ -296,7 +284,7 @@ MD,
                 'badge' => 'Tabelas',
                 'icon' => 'layers',
                 'summary' => 'Preços base, escalonamento por volume e regras de campanhas promocionais.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Catálogo & Preços Determinísticos
 
 O motor de precificação do FarmaFlow opera de maneira estritamente determinística através do serviço `App\Services\Pricing\PricingEngine`.
@@ -312,24 +300,16 @@ Ao calcular o valor unitário de um item em uma cotação, o sistema segue a seg
 3. **Preço Base de Tabela**: Valor padrão unitário cadastrado no produto.
 
 ```php
-// Exemplo de chamada interna do motor
-$pricingResult = $pricingEngine->calculateUnitPrice(
-    product: $produtoDipirona,
-    quantity: 100,
-    company: $empresaCliente,
-    campaignCode: 'OUTUBRO_ROSA'
-);
-
-// Retorno estruturado:
-// [
-//     'unit_price' => 7.50,
-//     'base_price' => 12.00,
-//     'discount_percent' => 37.5,
-//     'applied_rule' => 'Volume Tier (100+ un) + Campanha OUTUBRO_ROSA',
-//     'requires_approval' => false
-// ]
+// Exemplo de retorno estruturado:
+[
+    'unit_price' => 7.50,
+    'base_price' => 12.00,
+    'discount_percent' => 37.5,
+    'applied_rule' => 'Volume Tier (100+ un) + Campanha OUTUBRO_ROSA',
+    'requires_approval' => false
+]
 ```
-MD,
+MD
             ],
             'cotacoes-pedidos' => [
                 'title' => 'Cotações, Trava & Alçadas',
@@ -337,7 +317,7 @@ MD,
                 'badge' => 'Segurança',
                 'icon' => 'shopping-bag',
                 'summary' => 'Fluxo de conversão, trava de preço (Order Lock) e aprovação de descontos.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Cotações, Trava de Segurança & Alçadas
 
 Garantir a integridade financeira das vendas é essencial para distribuidores e laboratórios. O FarmaFlow possui um mecanismo à prova de falhas chamado **Deterministic Order Lock**.
@@ -368,7 +348,7 @@ Se um cliente demorar dias para aceitar uma cotação e, nesse meio tempo, uma c
 - **Até 10% de desconto adicional:** Liberação imediata pelo representante.
 - **De 10.1% a 20%:** Requer aprovação do Gerente Comercial Regional.
 - **Acima de 20%:** Requer aprovação da Diretoria Comercial no painel.
-MD,
+MD
             ],
             'handover-humano' => [
                 'title' => 'Handoff Humano-Robô',
@@ -376,7 +356,7 @@ MD,
                 'badge' => 'Inbox',
                 'icon' => 'user-check',
                 'summary' => 'Como funciona o controle híbrido de atendimento e quando intervir.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Handoff Humano-Robô
 
 O FarmaFlow não substitui o representante comercial — ele atua como seu **copiloto 24/7**.
@@ -394,7 +374,7 @@ A IA passa a conversa para o modo humano nos seguintes casos:
 ::: tip RETOMADA RÁPIDA DA IA
 Após atender o cliente no WhatsApp, o representante pode clicar no botão **"Retomar IA"** na barra superior do chat para devolver o monitoramento automático.
 :::
-MD,
+MD
             ],
             'automacoes-rotinas' => [
                 'title' => 'Automações & Rotinas Diárias',
@@ -402,7 +382,7 @@ MD,
                 'badge' => 'Artisan',
                 'icon' => 'zap',
                 'summary' => 'Comandos cron que rodam diariamente para aquecimento e follow-up.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Automações & Rotinas Diárias
 
 O FarmaFlow executa rotinas agendadas (Laravel Scheduler) para manter a carteira sempre aquecida.
@@ -428,7 +408,7 @@ Estima o esgotamento de estoque do cliente e agenda uma tarefa para o vendedor:
 ```bash
 php artisan crm:detect-repurchase-opportunities
 ```
-MD,
+MD
             ],
             'seguranca-lgpd' => [
                 'title' => 'Compliance LGPD & Firewall Clínico',
@@ -436,7 +416,7 @@ MD,
                 'badge' => 'LGPD',
                 'icon' => 'shield-check',
                 'summary' => 'Políticas de privacidade, salvaguardas éticas e proteção de dados médicos.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Compliance LGPD & Firewall Clínico
 
 O FarmaFlow está em conformidade estrita com a **Lei Geral de Proteção de Dados (Lei nº 13.709/2018)** e com as normativas da **ANVISA**.
@@ -448,7 +428,7 @@ O FarmaFlow está em conformidade estrita com a **Lei Geral de Proteção de Dad
 - **Opt-Out Instantâneo:** Se o cliente enviar palavras como *"SAIR"*, *"PARAR"* ou *"CANCELAR"*, o número é adicionado à lista de exclusão imediatamente.
 - **Logs Criptografados:** Todas as mensagens são armazenadas em banco com criptografia em repouso.
 - **Firewall Clínico:** O assistente **nunca receita nem orienta tratamentos médicos**. Ao detectar consultas clínicas de leigos, reforça a recomendação de consulta com um médico ou farmacêutico habilitado.
-MD,
+MD
             ],
             'comandos-artisan' => [
                 'title' => 'Referência de Comandos CLI',
@@ -456,7 +436,7 @@ MD,
                 'badge' => 'CLI',
                 'icon' => 'code-2',
                 'summary' => 'Lista completa de comandos Artisan para manutenção e testes.',
-                'content' => <<<MD
+                'content' => <<<'MD'
 # Referência de Comandos CLI
 
 Comandos úteis para diagnóstico, testes e manutenção no servidor:
@@ -474,9 +454,49 @@ php artisan optimize:clear
 # Rodar migrações e popular dados de teste
 php artisan migrate:fresh --seed
 ```
-MD,
+MD
             ],
         ];
+    }
+
+    /**
+     * Renderiza o markdown de forma segura com Admonitions estilo Vitepress
+     */
+    protected function parseMarkdown(string $markdown): string
+    {
+        // 1. Tip Callout
+        $markdown = preg_replace(
+            '/:::\s*tip\s*([^\n]*)\n(.*?)\n:::/s',
+            '<div class="catppuccin-callout tip my-6 p-4 rounded-2xl bg-[#a6e3a1]/10 border border-[#a6e3a1]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#a6e3a1] text-xs font-mono uppercase mb-2"><i data-lucide="lightbulb" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
+            $markdown
+        );
+
+        // 2. Info Callout
+        $markdown = preg_replace(
+            '/:::\s*info\s*([^\n]*)\n(.*?)\n:::/s',
+            '<div class="catppuccin-callout info my-6 p-4 rounded-2xl bg-[#89b4fa]/10 border border-[#89b4fa]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#89b4fa] text-xs font-mono uppercase mb-2"><i data-lucide="info" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
+            $markdown
+        );
+
+        // 3. Warning Callout
+        $markdown = preg_replace(
+            '/:::\s*warning\s*([^\n]*)\n(.*?)\n:::/s',
+            '<div class="catppuccin-callout warning my-6 p-4 rounded-2xl bg-[#f9e2af]/10 border border-[#f9e2af]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#f9e2af] text-xs font-mono uppercase mb-2"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
+            $markdown
+        );
+
+        // 4. Danger Callout
+        $markdown = preg_replace(
+            '/:::\s*danger\s*([^\n]*)\n(.*?)\n:::/s',
+            '<div class="catppuccin-callout danger my-6 p-4 rounded-2xl bg-[#f38ba8]/10 border border-[#f38ba8]/30 text-[#cdd6f4]"><div class="flex items-center gap-2 font-bold text-[#f38ba8] text-xs font-mono uppercase mb-2"><i data-lucide="shield-alert" class="w-4 h-4"></i><span>$1</span></div><div class="text-xs leading-relaxed text-[#bac2de]">$2</div></div>',
+            $markdown
+        );
+
+        try {
+            return Str::markdown($markdown);
+        } catch (\Throwable) {
+            return '<pre>' . e($markdown) . '</pre>';
+        }
     }
 
     public function index(Request $request): View
@@ -490,6 +510,7 @@ MD,
 
         $activeTopic = $topics[$selectedSlug];
         $activeTopic['slug'] = $selectedSlug;
+        $activeTopic['html_content'] = $this->parseMarkdown($activeTopic['content']);
 
         // Agrupar tópicos por categoria no padrão Vitepress
         $groupedTopics = [];
