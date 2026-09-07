@@ -73,9 +73,10 @@ services:
     environment:
       - SERVER_URL=${EVOLUTION_PUBLIC_URL:-http://localhost:8080}
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-farmaflow_evolution_key_123}
-      - DATABASE_PROVIDER=local
+      - DATABASE_ENABLED=false
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://redis:6379
+      - CACHE_REDIS_PREFIX_KEY=evolution
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
