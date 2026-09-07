@@ -51,6 +51,13 @@ class EvolutionWebhookHandler
 
         $messageId = $messageKey['id'] ?? ($data['messageId'] ?? ($data['id'] ?? null));
         $remoteJid = $messageKey['remoteJid'] ?? ($data['sender'] ?? ($data['remoteJid'] ?? ''));
+        $senderPn = $messageKey['senderPn'] ?? ($data['senderPn'] ?? ($data['participantPn'] ?? null));
+
+        // Se o remoteJid for ID interno do WhatsApp (@lid), usa o número de telefone real (senderPn)
+        if ((empty($remoteJid) || str_contains($remoteJid, '@lid')) && !empty($senderPn)) {
+            $remoteJid = $senderPn;
+        }
+
         $phone = preg_replace('/\D+/', '', explode('@', $remoteJid)[0]);
 
         if (empty($phone)) {

@@ -2,7 +2,18 @@
 
 echo "🚀 Iniciando FarmaFlow..."
 
-# 1. Preparar arquivo .env
+# 1. Garantir que o PHP-FPM herde todas as variáveis de ambiente do Docker (clear_env = no)
+for conf in /usr/local/etc/php-fpm.d/www.conf /etc/php83/php-fpm.d/www.conf /etc/php82/php-fpm.d/www.conf /etc/php-fpm.d/www.conf; do
+    if [ -f "$conf" ]; then
+        sed -i 's/;clear_env = no/clear_env = no/' "$conf"
+        sed -i 's/clear_env = yes/clear_env = no/' "$conf"
+        if ! grep -q "clear_env = no" "$conf"; then
+            echo "clear_env = no" >> "$conf"
+        fi
+    fi
+done
+
+# 2. Preparar arquivo .env
 if [ ! -f .env ]; then
     echo "📋 Criando .env..."
     if [ -f .env.example ]; then
@@ -12,9 +23,8 @@ if [ ! -f .env ]; then
     fi
 fi
 
-# 2. Garantir APP_KEY válida
+# 3. Garantir APP_KEY válida
 if [ -z "$APP_KEY" ]; then
-    # Se não veio via ambiente, verificar se já existe no .env
     if ! grep -q "^APP_KEY=base64:" .env; then
         echo "🔑 Gerando chave de segurança da aplicação..."
         RANDOM_KEY=$(php -r "echo 'base64:' . base64_encode(random_bytes(32));" 2>/dev/null || head -c 32 /dev/urandom | base64)
@@ -25,13 +35,24 @@ if [ -z "$APP_KEY" ]; then
     fi
 fi
 
-if [ -n "$APP_KEY" ]; then
-    if grep -q "^APP_KEY=" .env; then
-        sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" .env
-    else
-        echo "APP_KEY=${APP_KEY}" >> .env
+# 4. Sincronizar todas as variáveis do Docker para o .env (persistência completa para PHP-FPM e CLI)
+for var in \
+    APP_NAME APP_ENV APP_KEY APP_DEBUG APP_URL \
+    DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD \
+    CACHE_STORE QUEUE_CONNECTION SESSION_DRIVER REDIS_HOST REDIS_PORT \
+    GEMINI_API_KEY GEMINI_MODEL \
+    EVOLUTION_API_URL EVOLUTION_PUBLIC_URL EVOLUTION_API_KEY EVOLUTION_INSTANCE \
+    EVOLUTION_WEBHOOK_URL EVOLUTION_WEBHOOK_SECRET; do
+    
+    val=$(eval echo "\$$var")
+    if [ -n "$val" ]; then
+        if grep -q "^${var}=" .env; then
+            sed -i "s|^${var}=.*|${var}=${val}|" .env
+        else
+            echo "${var}=${val}" >> .env
+        fi
     fi
-fi
+done
 
 # 3. Criar estrutura de pastas do storage
 mkdir -p storage/framework/sessions \
