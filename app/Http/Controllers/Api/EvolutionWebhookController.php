@@ -19,6 +19,15 @@ class EvolutionWebhookController extends Controller
      */
     public function handle(Request $request): JsonResponse
     {
+        // Se for requisição GET (teste de conectividade da Evolution API ou navegador)
+        if ($request->isMethod('GET')) {
+            return response()->json([
+                'status' => 'online',
+                'service' => 'FarmaFlow Evolution Webhook Handler',
+                'timestamp' => now()->toIso8601String(),
+            ], 200);
+        }
+
         $payload = $request->all();
 
         Log::info("Webhook Evolution recebido", [

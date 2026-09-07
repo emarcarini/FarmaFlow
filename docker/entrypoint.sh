@@ -76,10 +76,14 @@ php artisan migrate --force --graceful || true
 echo "🌱 Sincronizando dados iniciais..."
 php artisan db:seed --force || true
 
-# 8. Otimização de caches
-echo "⚡ Otimizando configurações..."
+# 8. Otimização de caches e rotas
+echo "⚡ Atualizando rotas e configurações..."
 php artisan optimize:clear 2>/dev/null || true
-php artisan optimize 2>/dev/null || true
+php artisan route:clear 2>/dev/null || true
+php artisan config:clear 2>/dev/null || true
+php artisan view:clear 2>/dev/null || true
+php artisan route:cache 2>/dev/null || true
+php artisan config:cache 2>/dev/null || true
 
 echo "🎉 FarmaFlow pronto para atender!"
 

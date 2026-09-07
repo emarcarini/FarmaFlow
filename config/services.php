@@ -41,9 +41,10 @@ return [
     ],
 
     'evolution' => [
-        'url' => env('EVOLUTION_API_URL', 'http://localhost:8080'),
-        'key' => env('EVOLUTION_API_KEY', ''),
+        'url' => env('EVOLUTION_API_URL', 'http://evolution-api:8080'),
+        'key' => env('EVOLUTION_API_KEY', 'farmaflow_evolution_key_123'),
         'instance' => env('EVOLUTION_INSTANCE', 'comercial'),
+        'webhook_url' => env('EVOLUTION_WEBHOOK_URL', 'http://app/api/v1/webhooks/evolution'),
         'webhook_secret' => env('EVOLUTION_WEBHOOK_SECRET'),
     ],
 

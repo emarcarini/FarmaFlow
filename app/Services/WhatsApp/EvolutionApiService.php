@@ -90,10 +90,13 @@ class EvolutionApiService
     /**
      * Obter a URL de destino do Webhook para o FarmaFlow.
      */
+    /**
+     * Obter a URL de destino do Webhook para o FarmaFlow.
+     */
     public function getWebhookUrl(): string
     {
         // 1. Variável explícita de webhook
-        $customUrl = env('EVOLUTION_WEBHOOK_URL', config('services.evolution.webhook_url'));
+        $customUrl = config('services.evolution.webhook_url') ?: env('EVOLUTION_WEBHOOK_URL');
         if (!empty($customUrl)) {
             return $customUrl;
         }
@@ -105,7 +108,7 @@ class EvolutionApiService
             return 'http://app/api/v1/webhooks/evolution';
         }
 
-        $appUrl = env('APP_URL');
+        $appUrl = config('app.url') ?: env('APP_URL');
         if (!empty($appUrl) && !str_contains($appUrl, 'localhost')) {
             return rtrim($appUrl, '/') . '/api/v1/webhooks/evolution';
         }

@@ -14,6 +14,16 @@ use Illuminate\Support\Facades\Route;
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 
+// Webhook Endpoints da Evolution API (Sem autenticação de sessão, com suporte a qualquer variação de rota e sub-evento)
+Route::match(['GET', 'POST'], '/webhooks/evolution/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/v1/webhooks/evolution/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/webhook/evolution/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/webhook/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/api/webhooks/evolution/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/api/v1/webhooks/evolution/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/api/webhook/evolution/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+Route::match(['GET', 'POST'], '/api/webhook/{event?}', [\App\Http\Controllers\Api\EvolutionWebhookController::class, 'handle']);
+
 // Rotas do Portal (Acesso restrito para usuários autenticados)
 Route::middleware(['auth'])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

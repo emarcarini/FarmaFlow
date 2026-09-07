@@ -15,10 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
         $middleware->validateCsrfTokens(except: [
+            '*webhook*',
+            '*webhooks*',
             'api/*',
-            'webhooks/*',
-            'webhook/*',
-            'webhook',
+            'v1/*',
         ]);
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
