@@ -45,7 +45,7 @@ class CommercialAgentService
     /**
      * Processar mensagem recebida do cliente no WhatsApp.
      */
-    public function handleCustomerMessage(Conversation $conversation, string $userMessage): string
+    public function handleCustomerMessage(Conversation $conversation, string $userMessage, ?string $instanceName = null): string
     {
         $contact = $conversation->contact;
         $company = $contact?->company;
@@ -63,7 +63,7 @@ class CommercialAgentService
 
             $safetyResponse = "Por questões de segurança regulatória e saúde, nosso assistente comercial não fornece orientações diagnósticas, posologias ou prescrições médicas. Vou transferir seu contato para a nossa equipe especializada.";
 
-            $this->saveAndSendMessage($conversation, $safetyResponse);
+            $this->saveAndSendMessage($conversation, $safetyResponse, $instanceName);
 
             AuditLogService::log(
                 action: 'clinical_firewall.triggered',
@@ -111,7 +111,7 @@ PROMPT;
         $responseContent = $this->callGeminiAiOrFallback($conversation, $systemPrompt, $userMessage);
 
         if (!empty($responseContent)) {
-            $this->saveAndSendMessage($conversation, $responseContent);
+            $this->saveAndSendMessage($conversation, $responseContent, $instanceName);
         }
 
         return $responseContent;
@@ -309,7 +309,7 @@ PROMPT;
         return "Opa, tudo bem? Consigo consultar preços atualizados, promoções por quantidade e montar cotações rápidas para você. Como posso te ajudar hoje?";
     }
 
-    protected function saveAndSendMessage(Conversation $conversation, string $content): void
+    protected function saveAndSendMessage(Conversation $conversation, string $content, ?string $instanceName = null): void
     {
         $conversation->messages()->create([
             'direction' => 'outbound',
@@ -322,7 +322,20 @@ PROMPT;
         $conversation->update(['last_message_at' => now()]);
 
         if ($conversation->contact?->phone) {
-            $this->whatsappService->sendTextMessage($conversation->contact->phone, $content);
+            try {
+                $instance = $instanceName 
+                    ?? $conversation->representative?->getEffectiveWhatsAppInstance() 
+                    ?? config('services.evolution.instance', 'comercial');
+                
+                $this->whatsappService->setInstance($instance);
+                $this->whatsappService->sendTextMessage($conversation->contact->phone, $content);
+            } catch (\Throwable $e) {
+                Log::error("Erro ao enviar mensagem WhatsApp pelo agente de IA: " . $e->getMessage(), [
+                    'phone' => $conversation->contact->phone,
+                    'instance' => $instance ?? 'unknown',
+                    'exception' => $e,
+                ]);
+            }
         }
     }
 }

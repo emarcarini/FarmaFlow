@@ -29,6 +29,15 @@ class WhatsAppConnectionController extends Controller
              if ($request->has('representative_id')) {
                  return Representative::find($request->input('representative_id'));
              }
+
+             $envInstance = config('services.evolution.instance');
+             if ($envInstance && $envInstance !== 'comercial') {
+                 $repByInstance = Representative::where('whatsapp_instance', $envInstance)->first();
+                 if ($repByInstance) {
+                     return $repByInstance;
+                 }
+             }
+
              // Se for admin e não especificou, busca o primeiro representante com WhatsApp ou o primeiro ativo
              return Representative::whereNotNull('whatsapp_instance')->first()
                  ?? Representative::where('is_active', true)->first();

@@ -12,7 +12,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(\App\Services\WhatsApp\EvolutionApiService::class, function () {
+            return new \App\Services\WhatsApp\EvolutionApiService();
+        });
     }
 
     /**
