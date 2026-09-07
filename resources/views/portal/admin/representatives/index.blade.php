@@ -179,11 +179,19 @@
 
                 <!-- Footer Action Buttons -->
                 <div class="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                    <button onclick='openEditRepModal(@json($rep))' 
-                        class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all flex items-center gap-1.5" title="Editar Representante">
-                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-                        <span>Editar</span>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button onclick='openEditRepModal(@json($rep))' 
+                            class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-all flex items-center gap-1.5" title="Editar Representante">
+                            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                            <span>Editar</span>
+                        </button>
+                        <button onclick="openWhatsAppModal({{ $rep->id }})" 
+                            class="px-3 py-2 rounded-xl {{ $rep->whatsapp_status === 'open' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25' : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30' }} text-xs font-semibold transition-all flex items-center gap-1.5" 
+                            title="Conectar ou Gerenciar WhatsApp deste Representante">
+                            <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+                            <span>{{ $rep->whatsapp_status === 'open' ? 'Online' : 'Conectar' }}</span>
+                        </button>
+                    </div>
 
                     <div class="flex items-center gap-1.5">
                         <form method="POST" action="{{ route('admin.representatives.toggle', $rep) }}">

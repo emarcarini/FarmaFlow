@@ -334,10 +334,14 @@
             </div>
 
             <!-- Status Info Card -->
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-                <div class="flex justify-between items-center">
-                    <span class="text-slate-500 dark:text-slate-400">Titular / Representante:</span>
-                    <span id="modal-wa-rep-name" class="font-bold text-slate-800 dark:text-slate-200">Carregando...</span>
+            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 space-y-2.5 text-xs">
+                <div class="flex justify-between items-center gap-2">
+                    <span class="text-slate-500 dark:text-slate-400 flex-shrink-0">Titular / Representante:</span>
+                    <div id="modal-rep-select-container" class="hidden">
+                        <select id="modal-rep-selector" onchange="switchModalRepresentative(this.value)" class="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-white px-2.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500/50">
+                        </select>
+                    </div>
+                    <span id="modal-wa-rep-name" class="font-bold text-slate-800 dark:text-slate-200 truncate">Carregando...</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-slate-500 dark:text-slate-400">Status da Instância:</span>
@@ -345,7 +349,7 @@
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-slate-500 dark:text-slate-400">Instância Dedicada:</span>
-                    <span id="modal-wa-instance" class="font-mono text-indigo-600 dark:text-indigo-300 font-semibold">comercial</span>
+                    <span id="modal-wa-instance" class="font-mono text-indigo-600 dark:text-indigo-300 font-semibold">---</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-slate-500 dark:text-slate-400">Servidor Evolution:</span>
@@ -412,10 +416,15 @@
             updateThemeUI();
         }
 
-        // Funções de Gestão de Conexão WhatsApp Real
-        async function checkWhatsAppStatus() {
+        // Funções de Gestão de Conexão WhatsApp Real e Multi-Representante Dinâmico
+        let currentSelectedRepId = null;
+
+        async function checkWhatsAppStatus(repId = null) {
+            if (repId) currentSelectedRepId = repId;
             try {
-                const res = await fetch('{{ route("portal.whatsapp.status") }}');
+                const url = new URL('{{ route("portal.whatsapp.status") }}', window.location.origin);
+                if (currentSelectedRepId) url.searchParams.set('representative_id', currentSelectedRepId);
+                const res = await fetch(url);
                 const data = await res.json();
 
                 const badgeDot = document.getElementById('whatsapp-header-dot');
@@ -427,8 +436,36 @@
                 const modalRepName = document.getElementById('modal-wa-rep-name');
                 const disconnectBtn = document.getElementById('modal-disconnect-btn');
 
-                if (modalRepName) modalRepName.innerText = data.representative_name || '{{ auth()->user()->name }}';
-                if (modalInstance) modalInstance.innerText = data.instance || 'comercial';
+                // Se houver lista de representantes (Admin logado), popula o dropdown
+                if (data.all_representatives && data.all_representatives.length > 0) {
+                    const selectCont = document.getElementById('modal-rep-select-container');
+                    const select = document.getElementById('modal-rep-selector');
+                    if (select && selectCont) {
+                        // Só recria as opções se o select estiver vazio
+                        if (select.children.length === 0) {
+                            select.innerHTML = '';
+                            data.all_representatives.forEach(r => {
+                                const opt = document.createElement('option');
+                                opt.value = r.id;
+                                const statusLabel = r.whatsapp_status === 'open' ? '● Conectado' : '○ Desconectado';
+                                opt.innerText = `${r.name} (${statusLabel})`;
+                                if (r.id === data.representative_id) opt.selected = true;
+                                select.appendChild(opt);
+                            });
+                        } else if (data.representative_id) {
+                            select.value = data.representative_id;
+                        }
+                        selectCont.classList.remove('hidden');
+                        if (modalRepName) modalRepName.classList.add('hidden');
+                    }
+                } else {
+                    if (modalRepName) {
+                        modalRepName.innerText = data.representative_name || '{{ auth()->user()->name }}';
+                        modalRepName.classList.remove('hidden');
+                    }
+                }
+
+                if (modalInstance) modalInstance.innerText = data.instance || '---';
                 if (modalServer) modalServer.innerText = data.server_url || 'http://evolution-api:8080';
 
                 if (data.connected && data.state === 'open') {
@@ -480,7 +517,14 @@
             }
         }
 
-        async function fetchWhatsAppQrCode() {
+        function switchModalRepresentative(repId) {
+            currentSelectedRepId = repId;
+            checkWhatsAppStatus(repId);
+            fetchWhatsAppQrCode(repId);
+        }
+
+        async function fetchWhatsAppQrCode(repId = null) {
+            if (repId) currentSelectedRepId = repId;
             const qrLoading = document.getElementById('modal-qr-loading');
             const qrImg = document.getElementById('modal-qr-img');
             const pairingBox = document.getElementById('modal-pairing-box');
@@ -490,7 +534,9 @@
             if (qrImg) qrImg.classList.add('hidden');
 
             try {
-                const res = await fetch('{{ route("portal.whatsapp.qrcode") }}');
+                const url = new URL('{{ route("portal.whatsapp.qrcode") }}', window.location.origin);
+                if (currentSelectedRepId) url.searchParams.set('representative_id', currentSelectedRepId);
+                const res = await fetch(url);
                 const data = await res.json();
 
                 if (data.success && data.base64) {
@@ -505,7 +551,7 @@
                         pairingBox.classList.remove('hidden');
                     }
                 } else {
-                    checkWhatsAppStatus();
+                    checkWhatsAppStatus(currentSelectedRepId);
                 }
             } catch (err) {
                 console.error('Erro ao buscar QR code:', err);
@@ -513,25 +559,28 @@
         }
 
         async function disconnectWhatsApp() {
-            if (!confirm('Deseja desconectar a instância do WhatsApp?')) return;
+            if (!confirm('Deseja desconectar a instância do WhatsApp deste representante?')) return;
             try {
-                await fetch('{{ route("portal.whatsapp.disconnect") }}', {
+                const url = new URL('{{ route("portal.whatsapp.disconnect") }}', window.location.origin);
+                if (currentSelectedRepId) url.searchParams.set('representative_id', currentSelectedRepId);
+                await fetch(url, {
                     method: 'POST',
                     headers: {
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                         'Content-Type': 'application/json'
                     }
                 });
-                checkWhatsAppStatus();
+                checkWhatsAppStatus(currentSelectedRepId);
             } catch (err) {
                 console.error('Erro ao desconectar WhatsApp:', err);
             }
         }
 
-        function openWhatsAppModal() {
+        function openWhatsAppModal(repId = null) {
+            if (repId) currentSelectedRepId = repId;
             document.getElementById('whatsapp-modal').classList.remove('hidden');
-            checkWhatsAppStatus();
-            fetchWhatsAppQrCode();
+            checkWhatsAppStatus(repId);
+            fetchWhatsAppQrCode(repId);
         }
 
         function closeWhatsAppModal() {

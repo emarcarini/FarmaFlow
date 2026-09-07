@@ -20,7 +20,7 @@ class EvolutionApiService
     {
         $this->baseUrl = rtrim(config('services.evolution.url', env('EVOLUTION_API_URL', 'http://evolution-api:8080')), '/');
         $this->apiKey = config('services.evolution.key', env('EVOLUTION_API_KEY', 'farmaflow_evolution_key_123'));
-        $this->instance = config('services.evolution.instance', env('EVOLUTION_INSTANCE', 'comercial'));
+        $this->instance = config('services.evolution.instance') ?: (env('EVOLUTION_INSTANCE') ?: '');
     }
 
     /**
@@ -206,14 +206,13 @@ class EvolutionApiService
     {
         $results = [];
 
-        // 1. Instância global padrão
-        $results['comercial'] = $this->setWebhookForInstance('comercial');
-
-        // 2. Todas as instâncias de Representantes
+        // 1. Todas as instâncias de Representantes reais
         $reps = Representative::all();
         foreach ($reps as $rep) {
             $inst = $rep->getEffectiveWhatsAppInstance();
-            $results[$inst] = $this->setWebhookForInstance($inst);
+            if (!empty($inst)) {
+                $results[$inst] = $this->setWebhookForInstance($inst);
+            }
         }
 
         // 3. Buscar todas as instâncias existentes na Evolution API e configurar

@@ -325,10 +325,15 @@ PROMPT;
             try {
                 $instance = $instanceName 
                     ?? $conversation->representative?->getEffectiveWhatsAppInstance() 
-                    ?? config('services.evolution.instance', 'comercial');
+                    ?? $conversation->contact?->representative?->getEffectiveWhatsAppInstance()
+                    ?? config('services.evolution.instance');
                 
-                $this->whatsappService->setInstance($instance);
-                $this->whatsappService->sendTextMessage($conversation->contact->phone, $content);
+                if (!empty($instance)) {
+                    $this->whatsappService->setInstance($instance);
+                    $this->whatsappService->sendTextMessage($conversation->contact->phone, $content);
+                } else {
+                    Log::warning("Instância WhatsApp não identificada para envio na conversa #{$conversation->id}");
+                }
             } catch (\Throwable $e) {
                 Log::error("Erro ao enviar mensagem WhatsApp pelo agente de IA: " . $e->getMessage(), [
                     'phone' => $conversation->contact->phone,
