@@ -87,6 +87,80 @@ class EvolutionApiService
 
     /**
      * Obter o estado real da conexão com a Evolution API.
+    /**
+     * Obter a URL de destino do Webhook para o FarmaFlow.
+     */
+    public function getWebhookUrl(): string
+    {
+        $customUrl = config('services.evolution.webhook_url');
+        if (!empty($customUrl)) {
+            return $customUrl;
+        }
+
+        $appUrl = env('APP_URL');
+        if (!empty($appUrl) && !str_contains($appUrl, 'localhost')) {
+            return rtrim($appUrl, '/') . '/api/v1/webhooks/evolution';
+        }
+
+        return 'http://app/api/v1/webhooks/evolution';
+    }
+
+    /**
+     * Configurar o Webhook na Evolution API para enviar eventos ao FarmaFlow automaticamente.
+     */
+    public function setWebhookForInstance(?string $instance = null): array
+    {
+        $instanceName = $instance ?: $this->instance;
+        $url = "{$this->baseUrl}/webhook/set/{$instanceName}";
+        $webhookUrl = $this->getWebhookUrl();
+
+        $events = [
+            'MESSAGES_UPSERT',
+            'MESSAGES_UPDATE',
+            'MESSAGES_DELETE',
+            'SEND_MESSAGE',
+            'CONNECTION_UPDATE',
+            'QRCODE_UPDATED',
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'apikey' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->timeout(10)->post($url, [
+                'webhook' => [
+                    'enabled' => true,
+                    'url' => $webhookUrl,
+                    'byEvents' => false,
+                    'base64' => false,
+                    'events' => $events,
+                ],
+                'enabled' => true,
+                'url' => $webhookUrl,
+                'byEvents' => false,
+                'base64' => false,
+                'events' => $events,
+            ]);
+
+            Log::info("Webhook Evolution configurado para instancia {$instanceName} em {$webhookUrl}: " . $response->body());
+
+            return [
+                'success' => $response->successful(),
+                'status' => $response->status(),
+                'url' => $webhookUrl,
+                'data' => $response->json(),
+            ];
+        } catch (\Throwable $e) {
+            Log::warning("Falha ao configurar Webhook Evolution para instancia {$instanceName}: " . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Obter o estado real da conexão com a Evolution API.
      */
     public function getConnectionState(): array
     {
@@ -102,6 +176,11 @@ class EvolutionApiService
                 $data = $response->json();
                 $state = $data['instance']['state'] ?? ($data['state'] ?? 'unknown');
                 $isConnected = ($state === 'open');
+
+                // Se estiver conectado, assegura que o webhook está ativo para receber mensagens
+                if ($isConnected) {
+                    $this->setWebhookForInstance();
+                }
 
                 return [
                     'connected' => $isConnected,
@@ -152,6 +231,7 @@ class EvolutionApiService
     public function createInstance(): array
     {
         $url = "{$this->baseUrl}/instance/create";
+        $webhookUrl = $this->getWebhookUrl();
 
         try {
             $response = Http::withHeaders([
@@ -162,7 +242,23 @@ class EvolutionApiService
                 'token' => $this->apiKey,
                 'qrcode' => true,
                 'integration' => 'WHATSAPP-BAILEYS',
+                'webhook' => [
+                    'enabled' => true,
+                    'url' => $webhookUrl,
+                    'byEvents' => false,
+                    'events' => [
+                        'MESSAGES_UPSERT',
+                        'MESSAGES_UPDATE',
+                        'MESSAGES_DELETE',
+                        'SEND_MESSAGE',
+                        'CONNECTION_UPDATE',
+                        'QRCODE_UPDATED',
+                    ],
+                ],
             ]);
+
+            // Também dispara configuração explícita de webhook
+            $this->setWebhookForInstance();
 
             return [
                 'success' => $response->successful(),
@@ -199,6 +295,9 @@ class EvolutionApiService
                     'Content-Type' => 'application/json',
                 ])->timeout(10)->get($url);
             }
+
+            // Garante o webhook registrado
+            $this->setWebhookForInstance();
 
             if ($response->successful()) {
                 $data = $response->json();

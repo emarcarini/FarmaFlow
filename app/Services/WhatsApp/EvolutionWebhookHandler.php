@@ -25,22 +25,36 @@ class EvolutionWebhookHandler
      */
     public function handle(array $payload): array
     {
-        $event = $payload['event'] ?? 'messages.upsert';
+        $event = strtolower($payload['event'] ?? 'messages.upsert');
+
+        // Se for evento de conexão (CONNECTION_UPDATE / QRCODE_UPDATED), registra e retorna
+        if (str_contains($event, 'connection') || str_contains($event, 'qrcode')) {
+            Log::info("Webhook Evolution status de conexao recebido: {$event}", [
+                'instance' => $payload['instance'] ?? 'unknown',
+            ]);
+            return ['status' => 'connection_event_received'];
+        }
+
+        // Desembrulhar payload de mensagens
+        $data = $payload['data'] ?? $payload;
+        if (isset($data[0]) && is_array($data[0])) {
+            $data = $data[0];
+        }
 
         // Filtrar apenas mensagens de entrada (inbound)
-        $data = $payload['data'] ?? $payload;
         $messageKey = $data['key'] ?? [];
-        $fromMe = $messageKey['fromMe'] ?? false;
+        $fromMe = $messageKey['fromMe'] ?? ($data['fromMe'] ?? false);
 
         if ($fromMe) {
             return ['status' => 'ignored_outbound'];
         }
 
-        $messageId = $messageKey['id'] ?? ($data['messageId'] ?? null);
-        $remoteJid = $messageKey['remoteJid'] ?? ($data['sender'] ?? '');
+        $messageId = $messageKey['id'] ?? ($data['messageId'] ?? ($data['id'] ?? null));
+        $remoteJid = $messageKey['remoteJid'] ?? ($data['sender'] ?? ($data['remoteJid'] ?? ''));
         $phone = preg_replace('/\D+/', '', explode('@', $remoteJid)[0]);
 
         if (empty($phone)) {
+            Log::warning("Webhook Evolution: RemoteJid/Telefone vazio no payload", ['data' => $data]);
             return ['status' => 'invalid_phone'];
         }
 
@@ -50,17 +64,22 @@ class EvolutionWebhookHandler
             return ['status' => 'duplicate_ignored', 'message_id' => $messageId];
         }
 
-        // Extrair texto da mensagem
-        $messageText = $data['message']['conversation']
-            ?? ($data['message']['extendedTextMessage']['text']
-            ?? ($data['message']['text'] ?? ''));
+        // Extrair texto da mensagem em múltiplos formatos suportados pela Evolution API v2
+        $messageObj = $data['message'] ?? [];
+        $messageText = $messageObj['conversation']
+            ?? ($messageObj['extendedTextMessage']['text']
+            ?? ($messageObj['imageMessage']['caption']
+            ?? ($messageObj['videoMessage']['caption']
+            ?? ($messageObj['documentMessage']['caption']
+            ?? ($data['text'] ?? ($data['body'] ?? ''))))));
 
-        if (empty(trim($messageText))) {
+        if (empty(trim((string) $messageText))) {
+            Log::info("Webhook Evolution: Conteúdo da mensagem vazio ou não textual", ['messageObj' => $messageObj]);
             return ['status' => 'empty_content'];
         }
 
         // 2. Identificar a instância do representante no payload
-        $instanceName = $payload['instance'] ?? ($data['instance'] ?? null);
+        $instanceName = $payload['instance'] ?? ($data['instance'] ?? ($payload['owner'] ?? null));
         $targetRep = null;
         if ($instanceName) {
             $targetRep = Representative::where('whatsapp_instance', $instanceName)

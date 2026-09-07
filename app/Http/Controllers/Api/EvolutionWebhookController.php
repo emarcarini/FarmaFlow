@@ -21,6 +21,12 @@ class EvolutionWebhookController extends Controller
     {
         $payload = $request->all();
 
+        Log::info("Webhook Evolution recebido", [
+            'event' => $payload['event'] ?? 'unknown',
+            'instance' => $payload['instance'] ?? 'unknown',
+            'sender' => $payload['data']['key']['remoteJid'] ?? ($payload['sender'] ?? null),
+        ]);
+
         // Opcional: Validação de chave de segurança / secret configurado
         $secret = config('services.evolution.webhook_secret', env('EVOLUTION_WEBHOOK_SECRET'));
         $providedSecret = $request->header('x-webhook-secret') ?? $request->query('secret');
