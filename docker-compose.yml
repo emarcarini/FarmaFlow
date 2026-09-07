@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # 1. Aplicação FarmaFlow (Painel Web, API, Webhook e Queue Workers)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:80"
+    environment:
+      - APP_NAME="FarmaFlow"
+      - APP_ENV=${APP_ENV:-production}
+      - APP_DEBUG=${APP_DEBUG:-false}
+      - APP_URL=${APP_URL:-http://localhost:8000}
+      - DB_CONNECTION=mysql
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-farmaflow}
+      - DB_USERNAME=${DB_USERNAME:-farmaflow_user}
+      - DB_PASSWORD=${DB_PASSWORD:-farmaflow_pass_secret123}
+      - CACHE_STORE=redis
+      - QUEUE_CONNECTION=redis
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+      - EVOLUTION_API_URL=http://evolution-api:8080
+      - EVOLUTION_API_KEY=${EVOLUTION_API_KEY:-farmaflow_evolution_key_123}
+      - EVOLUTION_INSTANCE=${EVOLUTION_INSTANCE:-comercial}
+    volumes:
+      - storage_data:/var/www/html/storage
+    depends_on:
+      - mysql
+      - redis
+
+  # 2. Banco de Dados MySQL 8.0
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-farmaflow}
+      MYSQL_USER: ${DB_USERNAME:-farmaflow_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-farmaflow_pass_secret123}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_farmaflow_secret123}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "${DB_EXTERNAL_PORT:-3306}:3306"
+
+  # 3. Redis para Filas, Cache e Idempotência
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
+
+  # 4. Evolution API (WhatsApp Engine)
+  evolution-api:
+    image: atendai/evolution-api:v2.2.0
+    restart: unless-stopped
+    ports:
+      - "${EVOLUTION_PORT:-8080}:8080"
+    environment:
+      - SERVER_URL=${EVOLUTION_PUBLIC_URL:-http://localhost:8080}
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-farmaflow_evolution_key_123}
+      - DATABASE_PROVIDER=local
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - redis
+
+volumes:
+  storage_data:
+  mysql_data:
+  redis_data:
+  evolution_instances:
