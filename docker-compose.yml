@@ -13,9 +13,9 @@ services:
       - APP_KEY=${APP_KEY:-}
       - APP_DEBUG=${APP_DEBUG:-false}
       - APP_URL=${APP_URL:-http://localhost}
-      - DB_CONNECTION=mysql
-      - DB_HOST=mysql
-      - DB_PORT=3306
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
       - DB_DATABASE=${DB_DATABASE:-farmaflow}
       - DB_USERNAME=${DB_USERNAME:-farmaflow_user}
       - DB_PASSWORD=${DB_PASSWORD:-farmaflow_pass_secret123}
@@ -31,8 +31,10 @@ services:
     volumes:
       - storage_data:/var/www/html/storage
     depends_on:
-      - mysql
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - default
       - dokploy-network
@@ -42,19 +44,24 @@ services:
       - "traefik.http.routers.farmaflow-app.rule=Host(`farmaflow.npper.com`)"
       - "traefik.http.services.farmaflow-app.loadbalancer.server.port=80"
 
-  # 2. Banco de Dados MySQL 8.0 (FarmaFlow App)
-  mysql:
-    image: mysql:8.0
+  # 2. Banco de Dados PostgreSQL 15 (FarmaFlow App + Evolution API)
+  postgres:
+    image: postgres:15-alpine
     restart: unless-stopped
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE:-farmaflow}
-      MYSQL_USER: ${DB_USERNAME:-farmaflow_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-farmaflow_pass_secret123}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_farmaflow_secret123}
+      POSTGRES_DB: ${DB_DATABASE:-farmaflow}
+      POSTGRES_USER: ${DB_USERNAME:-farmaflow_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-farmaflow_pass_secret123}
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql:ro
     expose:
-      - 3306
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-farmaflow_user} -d ${DB_DATABASE:-farmaflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - default
 
@@ -69,27 +76,7 @@ services:
     networks:
       - default
 
-  # 4. Banco de Dados PostgreSQL 15 (Evolution API v2 - Prisma ORM)
-  postgres:
-    image: postgres:15-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${EVOLUTION_DB_NAME:-evolution}
-      POSTGRES_USER: ${EVOLUTION_DB_USER:-evolution}
-      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD:-evolution_pass_secret123}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    expose:
-      - 5432
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${EVOLUTION_DB_USER:-evolution} -d ${EVOLUTION_DB_NAME:-evolution}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - default
-
-  # 5. Evolution API v2 (WhatsApp Engine)
+  # 4. Evolution API v2 (WhatsApp Engine)
   evolution-api:
     image: evoapicloud/evolution-api:v2.3.1
     restart: unless-stopped
@@ -103,7 +90,7 @@ services:
       - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
-      - DATABASE_CONNECTION_URI=postgresql://${EVOLUTION_DB_USER:-evolution}:${EVOLUTION_DB_PASSWORD:-evolution_pass_secret123}@postgres:5432/${EVOLUTION_DB_NAME:-evolution}?schema=public
+      - DATABASE_CONNECTION_URI=postgresql://${DB_USERNAME:-farmaflow_user}:${DB_PASSWORD:-farmaflow_pass_secret123}@postgres:5432/evolution?schema=public
       - DATABASE_CONNECTION_CLIENT_NAME=evolution_v2
       - DATABASE_SAVE_DATA_INSTANCE=true
       - DATABASE_SAVE_DATA_CHATS=true
@@ -138,7 +125,6 @@ services:
 
 volumes:
   storage_data:
-  mysql_data:
   redis_data:
   postgres_data:
   evolution_instances:

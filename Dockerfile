@@ -14,12 +14,15 @@ RUN apk update && apk add --no-cache \
     icu-dev \
     oniguruma-dev \
     sqlite-dev \
+    postgresql-dev \
     linux-headers \
     bash
 
 # Configurar e instalar extensões PHP essenciais
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j$(nproc) \
+        pdo_pgsql \
+        pgsql \
         pdo_mysql \
         pdo_sqlite \
         bcmath \
