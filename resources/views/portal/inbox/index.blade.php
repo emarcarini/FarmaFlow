@@ -3,15 +3,15 @@
 @section('content')
 <div class="max-w-[1600px] mx-auto h-[calc(100vh-7.5rem)] flex flex-col">
     <!-- WhatsApp Web Shell Container -->
-    <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#111b21]">
+    <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 rounded-3xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#111b21]">
 
         <!-- ========================================================================= -->
         <!-- LEFT PANEL: CONVERSATIONS FEED (4 COLS)                                    -->
         <!-- ========================================================================= -->
-        <div class="lg:col-span-4 border-r border-slate-200 dark:border-slate-800/80 flex flex-col bg-slate-50/60 dark:bg-[#111b21] h-full">
+        <div class="lg:col-span-4 border-r border-slate-200 dark:border-slate-800/80 flex flex-col bg-slate-50/60 dark:bg-[#111b21] h-full min-h-0">
 
             <!-- 1. WhatsApp Topbar -->
-            <div class="p-3.5 px-4 bg-slate-100/90 dark:bg-[#202c33] border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
+            <div class="p-3.5 px-4 bg-slate-100/90 dark:bg-[#202c33] border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between flex-shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="relative">
                         <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 border border-emerald-400/40 flex items-center justify-center font-bold text-xs text-white shadow-sm">
@@ -44,7 +44,7 @@
             </div>
 
             <!-- 2. Search Box & Filter Chips -->
-            <div class="p-3 bg-white dark:bg-[#111b21] border-b border-slate-200/80 dark:border-slate-800/60 space-y-2.5">
+            <div class="p-3 bg-white dark:bg-[#111b21] border-b border-slate-200/80 dark:border-slate-800/60 space-y-2.5 flex-shrink-0">
                 <!-- Search Input -->
                 <div class="relative">
                     <i data-lucide="search" class="w-4 h-4 text-slate-400 dark:text-[#8696a0] absolute left-3.5 top-1/2 -translate-y-1/2"></i>
@@ -74,9 +74,9 @@
             </div>
 
             <!-- 3. Conversations Feed List -->
-            <div id="conversations-list-container" class="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/40">
+            <div id="conversations-list-container" class="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/40">
                 @if($filter === 'archived')
-                    <div class="p-3 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 flex items-center justify-between">
+                    <div class="p-3 bg-amber-500/10 border-b border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 flex items-center justify-between flex-shrink-0">
                         <span class="flex items-center gap-1.5 font-bold">
                             <i data-lucide="archive" class="w-3.5 h-3.5"></i>
                             Conversas Arquivadas
@@ -179,11 +179,11 @@
         <!-- ========================================================================= -->
         <!-- RIGHT PANEL: WHATSAPP WEB CHAT WINDOW (8 COLS)                            -->
         <!-- ========================================================================= -->
-        <div class="lg:col-span-8 flex flex-col bg-slate-100/60 dark:bg-[#0c1317] h-full relative">
+        <div class="lg:col-span-8 flex flex-col bg-slate-100/60 dark:bg-[#0c1317] h-full min-h-0 relative">
 
             @if($activeConversation)
                 <!-- 1. Chat Topbar Header (WhatsApp Web Style) -->
-                <div class="p-3 px-4 bg-slate-100/90 dark:bg-[#202c33] border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between z-10">
+                <div class="p-3 px-4 bg-slate-100/90 dark:bg-[#202c33] border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between flex-shrink-0 z-10">
                     <div class="flex items-center gap-3.5">
                         <div class="w-10 h-10 rounded-full bg-emerald-600/10 dark:bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-emerald-400 shadow-sm">
                             {{ strtoupper(substr($activeConversation->contact?->name ?? 'CL', 0, 2)) }}
@@ -251,22 +251,21 @@
                 </div>
 
                 <!-- 2. Chat Messages Thread (WhatsApp Web Bubble Styling) -->
-                <div class="flex-1 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#efeae2]/30 dark:bg-[#0b141a]/60 relative" id="messages-container">
-                    <!-- WhatsApp subtle pattern overlay -->
+                <div class="flex-1 min-h-0 p-4 md:p-6 overflow-y-auto space-y-3 bg-[#efeae2]/40 dark:bg-[#0b141a] relative" id="messages-container">
                     <div class="space-y-3 relative z-10">
                         @forelse($activeConversation->messages as $msg)
                             @php
                                 $isInbound = $msg->direction === 'inbound';
                             @endphp
                             <div class="flex flex-col {{ $isInbound ? 'items-start' : 'items-end' }}">
-                                <div class="max-w-md md:max-w-lg p-3 px-4 rounded-2xl text-xs md:text-sm leading-relaxed shadow-sm relative {{ $isInbound ? 'bg-white dark:bg-[#202c33] text-slate-900 dark:text-[#e9edef] rounded-tl-none border border-slate-200/50 dark:border-transparent' : ($msg->sender_type === 'ai' ? 'bg-[#005c4b] text-white rounded-tr-none shadow-md' : 'bg-indigo-600 dark:bg-[#005c4b] text-white rounded-tr-none shadow-md') }}">
+                                <div class="max-w-md md:max-w-lg p-3 px-4 rounded-2xl text-xs md:text-sm leading-relaxed shadow-sm relative {{ $isInbound ? 'bg-white dark:bg-[#202c33] text-slate-900 dark:text-[#e9edef] rounded-tl-none border border-slate-200/50 dark:border-transparent' : 'bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-[#e9edef] rounded-tr-none shadow-sm' }}">
                                     <!-- Sender label for AI or Rep -->
                                     @if(!$isInbound)
-                                        <div class="text-[10px] font-bold text-emerald-200 dark:text-[#53bdeb] mb-1 flex items-center gap-1">
+                                        <div class="text-[10px] font-bold {{ $msg->sender_type === 'ai' ? 'text-emerald-700 dark:text-[#53bdeb]' : 'text-teal-800 dark:text-emerald-300' }} mb-1 flex items-center gap-1">
                                             @if($msg->sender_type === 'ai')
                                                 <i data-lucide="bot" class="w-3 h-3"></i> Assistente IA (Gemini)
                                             @else
-                                                <i data-lucide="user" class="w-3 h-3"></i> Você (Emmanuel)
+                                                <i data-lucide="user" class="w-3 h-3"></i> Você ({{ auth()->user()->name ?? 'Emmanuel' }})
                                             @endif
                                         </div>
                                     @endif
@@ -277,7 +276,7 @@
                                     <div class="flex items-center justify-end gap-1 mt-1 text-[10px] opacity-75">
                                         <span>{{ $msg->created_at->format('H:i') }}</span>
                                         @if(!$isInbound)
-                                            <i data-lucide="check-check" class="w-3 h-3 text-cyan-300 dark:text-[#53bdeb]"></i>
+                                            <i data-lucide="check-check" class="w-3.5 h-3.5 text-cyan-600 dark:text-[#53bdeb]"></i>
                                         @endif
                                     </div>
                                 </div>
@@ -295,7 +294,7 @@
                 </div>
 
                 <!-- 3. Smart Commercial Suggestion Chips -->
-                <div class="px-4 py-2 bg-slate-100/90 dark:bg-[#202c33]/80 border-t border-slate-200 dark:border-slate-800/60 flex items-center gap-2 overflow-x-auto text-[11px]">
+                <div class="flex-shrink-0 px-4 py-2 bg-slate-100/90 dark:bg-[#202c33]/80 border-t border-slate-200 dark:border-slate-800/60 flex items-center gap-2 overflow-x-auto text-[11px]">
                     <span class="text-slate-400 dark:text-[#8696a0] font-bold flex-shrink-0">Sugestões Rápidas:</span>
                     <button type="button" onclick="insertMsg('Olá! Segue nossa tabela especial com descontos progressivos por volume.')" class="px-2.5 py-1 rounded-xl bg-white dark:bg-[#111b21] hover:bg-slate-50 dark:hover:bg-[#2a3942] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap transition-all shadow-sm">
                         📦 Tabela de Volume
@@ -309,7 +308,7 @@
                 </div>
 
                 <!-- 4. WhatsApp Message Input Bar -->
-                <div class="p-3 px-4 border-t border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#202c33] z-10">
+                <div class="flex-shrink-0 p-3 px-4 border-t border-slate-200 dark:border-slate-800/80 bg-white dark:bg-[#202c33] z-10">
                     <form method="POST" action="/inbox/{{ $activeConversation->id }}/send" class="flex items-center gap-3">
                         @csrf
                         <button type="button" onclick="insertMsg('😊 ')" title="Emoji" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all">
@@ -366,7 +365,7 @@
 <!-- ========================================================================= -->
 <!-- MODAL 1: LISTA DE CONTATOS (NOVA CONVERSA) ESTILO WHATSAPP WEB             -->
 <!-- ========================================================================= -->
-<div id="contacts-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+<div id="contacts-modal" onclick="if(event.target === this) closeContactsModal()" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-white dark:bg-[#111b21] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 relative flex flex-col max-h-[85vh]">
         <!-- Header -->
         <div class="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800/80">
@@ -430,7 +429,7 @@
 <!-- ========================================================================= -->
 <!-- MODAL 2: REGRAS E INSTRUÇÕES DO BOT IA (GOOGLE GEMINI)                     -->
 <!-- ========================================================================= -->
-<div id="bot-rules-modal" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
+<div id="bot-rules-modal" onclick="if(event.target === this) closeBotRulesModal()" class="fixed inset-0 z-50 hidden bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-4">
     <div class="bg-white dark:bg-[#111b21] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 md:p-8 max-w-2xl w-full shadow-2xl space-y-5 relative flex flex-col max-h-[90vh]">
         <!-- Header -->
         <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800/80">

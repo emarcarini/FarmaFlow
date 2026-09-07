@@ -59,6 +59,17 @@ class InboxController extends Controller
             }
         }
 
+        // Purga automática de conversas vazias legadas sem mensagens
+        try {
+            $emptyQuery = Conversation::whereDoesntHave('messages');
+            if ($selectedId) {
+                $emptyQuery->where('id', '!=', $selectedId);
+            }
+            $emptyQuery->delete();
+        } catch (\Throwable $e) {
+            // Ignora se tabela estiver sendo migrada
+        }
+
         // Base Query de Conversas
         $query = Conversation::query();
 
