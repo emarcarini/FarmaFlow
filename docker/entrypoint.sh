@@ -6,13 +6,25 @@ echo "🚀 Iniciando FarmaFlow..."
 # Criar .env se não existir
 if [ ! -f .env ]; then
     echo "📋 Criando .env a partir do .env.example..."
-    cp .env.example .env
+    if [ -f .env.example ]; then
+        cp .env.example .env
+    else
+        touch .env
+    fi
 fi
 
-# Gerar chave da aplicação se estiver vazia
-if ! grep -q "^APP_KEY=base64:" .env; then
+# Garantir que a linha APP_KEY exista no .env
+if ! grep -q "^APP_KEY=" .env; then
+    echo "APP_KEY=" >> .env
+fi
+
+# Se APP_KEY foi passada via variável de ambiente, atualizar no .env
+if [ -n "$APP_KEY" ]; then
+    echo "🔑 Usando APP_KEY configurada no ambiente..."
+    sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" .env
+elif ! grep -q "^APP_KEY=base64:" .env; then
     echo "🔑 Gerando chave de segurança da aplicação..."
-    php artisan key:generate --force
+    php artisan key:generate --force || true
 fi
 
 # Criar e ajustar estrutura do storage
