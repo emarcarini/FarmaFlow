@@ -44,4 +44,9 @@ Route::middleware(['auth'])->group(function () {
 
     // 7. Central de Documentação do Representante (Exclusivo para usuários autenticados)
     Route::get('/docs', [DocumentationController::class, 'index'])->name('portal.docs');
+
+    // 8. Gestão de Conexão WhatsApp / Evolution API
+    Route::get('/whatsapp/status', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'status'])->name('portal.whatsapp.status');
+    Route::get('/whatsapp/qrcode', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'getQrCode'])->name('portal.whatsapp.qrcode');
+    Route::post('/whatsapp/disconnect', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'disconnect'])->name('portal.whatsapp.disconnect');
 });

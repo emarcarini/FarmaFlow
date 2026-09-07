@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'FarmaFlow' }} — Assistente Comercial Inteligente</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -96,9 +97,8 @@
                                     <i data-lucide="message-circle" class="w-4 h-4 {{ request()->routeIs('portal.inbox*') ? 'text-white' : 'text-slate-400 group-hover:text-white' }}"></i>
                                     <span>Inbox WhatsApp</span>
                                 </div>
-                                <span class="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full {{ request()->routeIs('portal.inbox*') ? 'bg-indigo-700/80 text-white' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' }}">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                                    Live
+                                <span id="sidebar-wa-pill" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                                    Status
                                 </span>
                             </a>
 
@@ -187,11 +187,12 @@
 
                 <!-- Right Navbar Actions -->
                 <div class="flex items-center gap-4">
-                    <!-- WhatsApp Status Indicator -->
-                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span class="font-medium">WhatsApp Conectado</span>
-                    </div>
+                    <!-- Real Dynamic WhatsApp Status Button -->
+                    <button id="whatsapp-header-badge" onclick="openWhatsAppModal()" 
+                        class="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-indigo-500/50 text-xs text-slate-300 transition-all cursor-pointer shadow-sm">
+                        <span id="whatsapp-header-dot" class="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></span>
+                        <span id="whatsapp-header-text" class="font-medium">Verificando WhatsApp...</span>
+                    </button>
 
                     <!-- Quick Doc Button -->
                     <a href="{{ route('portal.docs') }}" class="p-2 text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all border border-transparent hover:border-indigo-500/20" title="Manual e Documentação">
@@ -227,10 +228,206 @@
         </div>
     </div>
 
+    <!-- WhatsApp Connection & QR Code Modal -->
+    <div id="whatsapp-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl space-y-6 relative">
+            <button onclick="closeWhatsAppModal()" class="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="qr-code" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-display font-bold text-lg text-white">Conexão WhatsApp (Evolution API)</h3>
+                    <p class="text-xs text-slate-400">Pareie seu smartphone para envio e recebimento em tempo real.</p>
+                </div>
+            </div>
+
+            <!-- Status Info Card -->
+            <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 text-xs">
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Status da Instância:</span>
+                    <span id="modal-wa-state" class="font-bold font-mono text-amber-400">Verificando...</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Instância:</span>
+                    <span id="modal-wa-instance" class="font-mono text-slate-200">comercial</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-400">Servidor Evolution:</span>
+                    <span id="modal-wa-server" class="font-mono text-slate-400 text-[11px] truncate max-w-[200px]">http://evolution-api:8080</span>
+                </div>
+            </div>
+
+            <!-- QR Code Area -->
+            <div id="modal-qr-container" class="text-center py-4 space-y-4">
+                <div id="modal-qr-box" class="w-56 h-56 mx-auto rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center p-2 relative overflow-hidden">
+                    <div id="modal-qr-loading" class="text-xs text-slate-500 flex flex-col items-center gap-2">
+                        <i data-lucide="loader-2" class="w-6 h-6 animate-spin text-indigo-400"></i>
+                        <span>Carregando QR Code...</span>
+                    </div>
+                    <img id="modal-qr-img" src="" alt="WhatsApp QR Code" class="w-full h-full object-contain rounded-xl hidden">
+                </div>
+
+                <div id="modal-pairing-box" class="hidden">
+                    <span class="text-xs text-slate-400 block mb-1">Ou conecte usando o Código de Pareamento:</span>
+                    <span id="modal-pairing-code" class="font-mono font-bold text-lg text-emerald-400 bg-slate-950 px-4 py-1.5 rounded-xl border border-slate-800 inline-block tracking-widest">---</span>
+                </div>
+
+                <p id="modal-qr-help" class="text-xs text-slate-400 max-w-xs mx-auto">
+                    Abra o WhatsApp no celular > Aparelhos Conectados > Conectar um aparelho e aponte a câmera.
+                </p>
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex gap-3 pt-2">
+                <button onclick="fetchWhatsAppQrCode()" class="flex-1 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/25">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    <span>Gerar / Atualizar QR Code</span>
+                </button>
+                <button id="modal-disconnect-btn" onclick="disconnectWhatsApp()" class="py-3 px-4 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 font-semibold text-xs transition-all hidden flex items-center gap-2">
+                    <i data-lucide="power" class="w-4 h-4"></i>
+                    <span>Desconectar</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         lucide.createIcons();
+
+        // Funções de Gestão de Conexão WhatsApp Real
+        async function checkWhatsAppStatus() {
+            try {
+                const res = await fetch('{{ route("portal.whatsapp.status") }}');
+                const data = await res.json();
+
+                const badgeDot = document.getElementById('whatsapp-header-dot');
+                const badgeText = document.getElementById('whatsapp-header-text');
+                const sidebarPill = document.getElementById('sidebar-wa-pill');
+                const modalState = document.getElementById('modal-wa-state');
+                const modalInstance = document.getElementById('modal-wa-instance');
+                const modalServer = document.getElementById('modal-wa-server');
+                const disconnectBtn = document.getElementById('modal-disconnect-btn');
+
+                if (modalInstance) modalInstance.innerText = data.instance || 'comercial';
+                if (modalServer) modalServer.innerText = data.server_url || 'http://evolution-api:8080';
+
+                if (data.connected && data.state === 'open') {
+                    // CONECTADO REAL
+                    badgeDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse';
+                    badgeText.innerText = 'WhatsApp Conectado';
+                    badgeText.className = 'font-semibold text-emerald-300';
+                    
+                    if (sidebarPill) {
+                        sidebarPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                        sidebarPill.innerText = '● Online';
+                    }
+                    if (modalState) {
+                        modalState.innerText = 'Conectado (Online)';
+                        modalState.className = 'font-bold font-mono text-emerald-400';
+                    }
+                    if (disconnectBtn) disconnectBtn.classList.remove('hidden');
+
+                    const qrBox = document.getElementById('modal-qr-box');
+                    if (qrBox) {
+                        qrBox.innerHTML = '<div class="text-center p-4"><i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-400 mx-auto mb-2"></i><p class="text-xs font-bold text-white">Instância Ativa & Conectada!</p><p class="text-[11px] text-slate-400 mt-1">Pronto para envio e recebimento de mensagens.</p></div>';
+                        lucide.createIcons();
+                    }
+                } else {
+                    // DESCONECTADO OU AGUARDANDO QR CODE
+                    badgeDot.className = 'w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e] animate-ping';
+                    badgeText.innerText = data.online ? 'WhatsApp Desconectado' : 'Evolution Offline';
+                    badgeText.className = 'font-semibold text-rose-300';
+
+                    if (sidebarPill) {
+                        sidebarPill.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30';
+                        sidebarPill.innerText = 'Desconectado';
+                    }
+                    if (modalState) {
+                        modalState.innerText = data.state === 'connecting' ? 'Aguardando Leitura do QR Code' : (data.online ? 'Desconectado' : 'Evolution API Offline');
+                        modalState.className = 'font-bold font-mono text-rose-400';
+                    }
+                    if (disconnectBtn) disconnectBtn.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error('Erro ao verificar status do WhatsApp:', err);
+                const badgeDot = document.getElementById('whatsapp-header-dot');
+                const badgeText = document.getElementById('whatsapp-header-text');
+                if (badgeDot && badgeText) {
+                    badgeDot.className = 'w-2 h-2 rounded-full bg-rose-500';
+                    badgeText.innerText = 'WhatsApp Desconectado';
+                    badgeText.className = 'font-medium text-rose-400';
+                }
+            }
+        }
+
+        async function fetchWhatsAppQrCode() {
+            const qrLoading = document.getElementById('modal-qr-loading');
+            const qrImg = document.getElementById('modal-qr-img');
+            const pairingBox = document.getElementById('modal-pairing-box');
+            const pairingCode = document.getElementById('modal-pairing-code');
+
+            if (qrLoading) qrLoading.classList.remove('hidden');
+            if (qrImg) qrImg.classList.add('hidden');
+
+            try {
+                const res = await fetch('{{ route("portal.whatsapp.qrcode") }}');
+                const data = await res.json();
+
+                if (data.success && data.base64) {
+                    if (qrImg) {
+                        qrImg.src = data.base64.startsWith('data:') ? data.base64 : 'data:image/png;base64,' + data.base64;
+                        qrImg.classList.remove('hidden');
+                    }
+                    if (qrLoading) qrLoading.classList.add('hidden');
+
+                    if (data.pairingCode && pairingBox && pairingCode) {
+                        pairingCode.innerText = data.pairingCode;
+                        pairingBox.classList.remove('hidden');
+                    }
+                } else {
+                    checkWhatsAppStatus();
+                }
+            } catch (err) {
+                console.error('Erro ao buscar QR code:', err);
+            }
+        }
+
+        async function disconnectWhatsApp() {
+            if (!confirm('Deseja desconectar a instância do WhatsApp?')) return;
+            try {
+                await fetch('{{ route("portal.whatsapp.disconnect") }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                checkWhatsAppStatus();
+            } catch (err) {
+                console.error('Erro ao desconectar WhatsApp:', err);
+            }
+        }
+
+        function openWhatsAppModal() {
+            document.getElementById('whatsapp-modal').classList.remove('hidden');
+            checkWhatsAppStatus();
+            fetchWhatsAppQrCode();
+        }
+
+        function closeWhatsAppModal() {
+            document.getElementById('whatsapp-modal').classList.add('hidden');
+        }
+
+        // Checagem periódica do status real a cada 15 segundos
+        document.addEventListener('DOMContentLoaded', () => {
+            checkWhatsAppStatus();
+            setInterval(checkWhatsAppStatus, 15000);
+        });
     </script>
     @stack('scripts')
 </body>
 </html>
-
