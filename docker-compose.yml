@@ -42,7 +42,7 @@ services:
       - "traefik.http.routers.farmaflow-app.rule=Host(`farmaflow.npper.com`)"
       - "traefik.http.services.farmaflow-app.loadbalancer.server.port=80"
 
-  # 2. Banco de Dados MySQL 8.0
+  # 2. Banco de Dados MySQL 8.0 (FarmaFlow App)
   mysql:
     image: mysql:8.0
     restart: unless-stopped
@@ -58,7 +58,7 @@ services:
     networks:
       - default
 
-  # 3. Redis para Filas, Cache e Idempotência
+  # 3. Redis para Filas, Cache e Sessões
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -69,23 +69,64 @@ services:
     networks:
       - default
 
-  # 4. Evolution API (WhatsApp Engine)
+  # 4. Banco de Dados PostgreSQL 15 (Evolution API v2 - Prisma ORM)
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${EVOLUTION_DB_NAME:-evolution}
+      POSTGRES_USER: ${EVOLUTION_DB_USER:-evolution}
+      POSTGRES_PASSWORD: ${EVOLUTION_DB_PASSWORD:-evolution_pass_secret123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${EVOLUTION_DB_USER:-evolution} -d ${EVOLUTION_DB_NAME:-evolution}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default
+
+  # 5. Evolution API v2 (WhatsApp Engine)
   evolution-api:
-    image: evoapicloud/evolution-api:v2.2.0
+    image: evoapicloud/evolution-api:v2.3.1
     restart: unless-stopped
     expose:
       - 8080
     environment:
-      - SERVER_URL=${EVOLUTION_PUBLIC_URL:-http://localhost:8080}
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - SERVER_URL=${EVOLUTION_PUBLIC_URL:-https://evolution.npper.com}
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-farmaflow_evolution_key_123}
-      - DATABASE_ENABLED=false
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://${EVOLUTION_DB_USER:-evolution}:${EVOLUTION_DB_PASSWORD:-evolution_pass_secret123}@postgres:5432/${EVOLUTION_DB_NAME:-evolution}?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_v2
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - DATABASE_SAVE_DATA_MESSAGES=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_PROFILES=true
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://redis:6379
       - CACHE_REDIS_PREFIX_KEY=evolution
+      - REDIS_ENABLED=true
+      - REDIS_URI=redis://redis:6379
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - CONFIG_SESSION_PHONE_CLIENT=FarmaFlow
+      - LOG_LEVEL=ERROR,WARN,DEBUG,INFO,LOG,VERBOSE,DARK
+      - LOG_COLOR=true
     volumes:
       - evolution_instances:/evolution/instances
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - default
       - dokploy-network
@@ -99,6 +140,7 @@ volumes:
   storage_data:
   mysql_data:
   redis_data:
+  postgres_data:
   evolution_instances:
 
 networks:
