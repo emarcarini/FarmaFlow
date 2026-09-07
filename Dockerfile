@@ -13,6 +13,8 @@ RUN apk update && apk add --no-cache \
     freetype-dev \
     icu-dev \
     oniguruma-dev \
+    sqlite-dev \
+    linux-headers \
     bash
 
 # Configurar e instalar extensões PHP essenciais
