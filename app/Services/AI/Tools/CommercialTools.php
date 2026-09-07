@@ -177,6 +177,23 @@ class CommercialTools
                     ],
                 ],
             ],
+            [
+                'type' => 'function',
+                'function' => [
+                    'name' => 'verificar_cnpj_autorizacao',
+                    'description' => 'Verifica se um CNPJ de farmácia/drogaria informado pelo usuário está cadastrado no CRM FarmaFlow e se o telefone de quem está enviando mensagem está autorizado para aquele CNPJ.',
+                    'parameters' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'cnpj' => [
+                                'type' => 'string',
+                                'description' => 'Número do CNPJ da farmácia (com ou sem pontuação) a ser checado.',
+                            ],
+                        ],
+                        'required' => ['cnpj'],
+                    ],
+                ],
+            ],
         ];
 
         // Ferramentas adicionais exclusivas para o Administrador / Representante
@@ -312,8 +329,9 @@ class CommercialTools
             'consultar_cliente' => $this->executeConsultCustomer($arguments),
             'consultar_preco' => $this->executeCheckPrice($arguments, $company, $contact),
             'consultar_campanhas_ativas' => $this->executeCheckCampaigns($company, $contact),
+            'verificar_cnpj_autorizacao' => $this->executeVerifyCnpjAuth($arguments, $contact),
             'criar_cotacao' => $this->executeCreateQuote($arguments, $company, $contact),
-            'criar_pedido' => $this->executeCreateOrder($arguments),
+            'criar_pedido' => $this->executeCreateOrder($arguments, $company, $contact),
             'transferir_para_humano' => $this->executeHandover($arguments, $conversation),
             'criar_followup' => $this->executeCreateFollowup($arguments, $company, $contact),
             'gerar_resumo_comercial' => $this->executeCommercialSummary($arguments),
@@ -550,8 +568,84 @@ class CommercialTools
         ];
     }
 
+    protected function executeVerifyCnpjAuth(array $args, ?Contact $contact): array
+    {
+        $rawCnpj = trim($args['cnpj'] ?? '');
+        $cleanCnpj = preg_replace('/\D+/', '', $rawCnpj);
+
+        if (empty($cleanCnpj)) {
+            return [
+                'encontrado' => false,
+                'cadastrado' => false,
+                'mensagem' => 'CNPJ inválido ou não informado. Por favor, forneça um CNPJ válido com 14 dígitos.',
+            ];
+        }
+
+        $companyFound = Company::where('document', $cleanCnpj)
+            ->orWhere('document', 'like', "%{$cleanCnpj}%")
+            ->first();
+
+        if (!$companyFound) {
+            return [
+                'encontrado' => false,
+                'cadastrado' => false,
+                'mensagem' => "Não localizei nenhum cadastro no CRM FarmaFlow com o CNPJ {$rawCnpj}. Para cadastrar sua farmácia e liberar condições de faturamento, entre em contato com o Emmanuel Marcarini (55 28 99943-9677).",
+            ];
+        }
+
+        $currentPhone = $contact?->phone;
+        $cleanPhone = $currentPhone ? preg_replace('/\D+/', '', $currentPhone) : null;
+        $isPhoneAuthorized = false;
+
+        if ($cleanPhone) {
+            $isPhoneAuthorized = $companyFound->contacts()
+                ->where('is_authorized', true)
+                ->where(function ($q) use ($cleanPhone) {
+                    $q->where('phone', $cleanPhone)
+                      ->orWhere('phone', 'like', '%' . substr($cleanPhone, -8));
+                })
+                ->exists();
+        }
+
+        if ($isPhoneAuthorized) {
+            if ($contact && $contact->company_id !== $companyFound->id) {
+                $contact->update([
+                    'company_id' => $companyFound->id,
+                    'is_authorized' => true,
+                ]);
+            }
+
+            return [
+                'encontrado' => true,
+                'cadastrado' => true,
+                'empresa_id' => $companyFound->id,
+                'nome_fantasia' => $companyFound->trade_name ?? $companyFound->name,
+                'documento' => $companyFound->document,
+                'telefone_autorizado' => true,
+                'mensagem' => "Excelente! O seu telefone ({$currentPhone}) está AUTORIZADO para o CNPJ {$companyFound->document} ({$companyFound->trade_name}). Você possui acesso a cotações e condições comerciais exclusivas para este cliente!",
+            ];
+        }
+
+        return [
+            'encontrado' => true,
+            'cadastrado' => true,
+            'empresa_id' => $companyFound->id,
+            'nome_fantasia' => $companyFound->trade_name ?? $companyFound->name,
+            'documento' => $companyFound->document,
+            'telefone_autorizado' => false,
+            'mensagem' => "O CNPJ {$companyFound->document} ({$companyFound->trade_name}) está cadastrado no CRM, porém o seu telefone ({$currentPhone}) NÃO consta na lista de telefones autorizados para este CNPJ. Por segurança e conformidade, solicite ao responsável ou ao Emmanuel Marcarini (55 28 99943-9677) para autorizar o seu número no cadastro do cliente no CRM.",
+        ];
+    }
+
     protected function executeCreateQuote(array $args, ?Company $company, ?Contact $contact): array
     {
+        if (!$company || !($contact?->isAuthorizedForCompany() ?? true)) {
+            return [
+                'error' => 'Apenas contatos autorizados para um CNPJ ativo no CRM podem gerar cotações formais.',
+                'requer_autorizacao_cnpj' => true,
+            ];
+        }
+
         $items = $args['itens'] ?? [];
         if (empty($items)) {
             return ['error' => 'Nenhum item informado para a cotação.'];
@@ -577,13 +671,22 @@ class CommercialTools
         ];
     }
 
-    protected function executeCreateOrder(array $args): array
+    protected function executeCreateOrder(array $args, ?Company $company = null, ?Contact $contact = null): array
     {
-        $quoteId = (int) $args['cotacao_id'];
+        $quoteId = (int) ($args['cotacao_id'] ?? 0);
         $quote = Quote::find($quoteId);
 
         if (!$quote) {
             return ['error' => 'Cotação não encontrada.'];
+        }
+
+        // ISOLAMENTO DE DADOS: O contato só pode fechar pedidos da própria empresa vinculada
+        if ($company && $quote->company_id !== $company->id) {
+            return ['error' => 'Acesso negado: esta cotação pertence a outro cliente/CNPJ.'];
+        }
+
+        if (!$company && !($contact?->isAuthorizedForCompany() ?? true)) {
+            return ['error' => 'Apenas contatos cadastrados e autorizados para um CNPJ ativo podem fechar pedidos.'];
         }
 
         try {

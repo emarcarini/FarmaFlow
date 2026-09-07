@@ -49,6 +49,8 @@ Route::middleware(['auth'])->group(function () {
     // 3. CRM e Clientes
     Route::get('/crm', [CrmController::class, 'index'])->name('portal.crm');
     Route::get('/crm/{company}', [CrmController::class, 'show'])->name('portal.crm.show');
+    Route::post('/crm/{company}/contacts', [CrmController::class, 'storeContact'])->name('portal.crm.contacts.store');
+    Route::delete('/crm/{company}/contacts/{contact}', [CrmController::class, 'destroyContact'])->name('portal.crm.contacts.destroy');
 
     // 4. Catálogo & Preços
     Route::get('/catalogo', [CatalogController::class, 'index'])->name('portal.catalog');

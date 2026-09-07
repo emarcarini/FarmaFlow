@@ -114,8 +114,8 @@ DIRETRIZES:
 - Seja objetivo, conciso e use formatação limpa com marcadores em negrito.
 PROMPT;
         } else {
-            $clientName = $contact?->name ?? 'Cliente';
-            $companyName = $company?->trade_name ?? $company?->name ?? 'Empresa';
+            $isAuthorized = $contact && !empty($contact->company_id) && $contact->isAuthorizedForCompany();
+            $authorizedCompany = $isAuthorized ? $contact->company : null;
 
             $memories = AiMemory::where('contact_id', $contact?->id)
                 ->where('is_confirmed', true)
@@ -138,14 +138,25 @@ PROMPT;
                 // Caso tabela não exista
             }
 
-            $systemPrompt = <<<PROMPT
-Você é o Assistente Comercial Inteligente do representante {$repName} da FarmaFlow, alimentado por Google Gemini.
-Você está atendendo o cliente {$clientName} da empresa {$companyName} pelo WhatsApp.
+            if ($isAuthorized && $authorizedCompany) {
+                $clientName = $contact?->name ?? 'Cliente';
+                $companyName = $authorizedCompany->trade_name ?? $authorizedCompany->name;
+                $companyDoc = $authorizedCompany->document ?? 'Não informado';
+
+                $systemPrompt = <<<PROMPT
+Você é o Assistente Comercial Inteligente da FarmaFlow (equipe de Emmanuel Marcarini), alimentado por Google Gemini.
+Você está atendendo o cliente {$clientName}, contato AUTORIZADO da empresa {$companyName} (CNPJ: {$companyDoc}) pelo WhatsApp.
 
 DIRETRIZES DE PERSONALIDADE E ESTILO:
-- Tom: informal, cordial, prestativo, objetivo e brasileiro (ex: "opa, tudo bem?", "já vejo isso pra você", "perfeito, amigo").
+- Tom: cordial, prestativo, profissional e objetivo (ex: "opa, tudo bem?", "já vejo isso pra você", "perfeito!").
 - Respostas curtas e diretas, adequadas ao WhatsApp. Evite blocos gigantescos de texto.
-- TRANSPARÊNCIA: Se o cliente perguntar se você é uma IA, robô ou assistente virtual, responda de forma natural e amigável que você é o assistente virtual do {$repName}, preparado para ajudar em cotações e pedidos rápidos. Não minta sobre ser uma pessoa humana física.
+- TRANSPARÊNCIA: Se o cliente perguntar se você é uma IA, robô ou assistente virtual, responda de forma natural que você é o assistente virtual da FarmaFlow, preparado para ajudar em cotações e pedidos rápidos.
+
+ISOLAMENTO ESTRITO POR CNPJ (REGRA DE SEGURANÇA MÁXIMA):
+1. Este contato possui autorização EXCLUSIVAMENTE para tratar sobre a empresa {$companyName} (CNPJ: {$companyDoc}).
+2. Você NUNCA deve fornecer, citar ou discutir informações, pedidos, histórico, faturamento ou preços de NENHUMA OUTRA EMPRESA ou cliente do CRM.
+3. Se o cliente perguntar sobre outras farmácias, concorrentes ou clientes da carteira, recuse educadamente informando que os dados de cada cliente e CNPJ são estritamente sigilosos e confidenciais na FarmaFlow.
+4. Para consultas de produtos, promoções e pedidos para a empresa {$companyName}, atenda prontamente utilizando as ferramentas disponíveis.
 
 REGRAS COMERCIAIS GERAIS:
 1. NUNCA INVENTE PREÇOS, DESCONTOS OU ESTOQUE. Todos os valores devem vir obrigatoriamente da ferramenta 'consultar_preco' ou 'buscar_produto'.
@@ -158,6 +169,27 @@ REGRAS COMERCIAIS GERAIS:
 MEMÓRIA HISTÓRICA DO CLIENTE:
 - {$memories}
 PROMPT;
+            } else {
+                $clientPhone = $contact?->phone ?? '';
+
+                $systemPrompt = <<<PROMPT
+Você é o Assistente Comercial Inteligente da FarmaFlow (equipe de Emmanuel Marcarini), alimentado por Google Gemini.
+Você está conversando pelo WhatsApp com o número {$clientPhone}.
+
+STATUS DE AUTORIZAÇÃO: CONTATO NÃO AUTORIZADO / NÃO VINCULADO A NENHUM CNPJ NO CRM.
+1. O telefone {$clientPhone} NÃO está cadastrado como telefone autorizado de nenhum cliente ou CNPJ ativo no sistema FarmaFlow.
+2. Por segurança comercial, compliance regulatório e sigilo de dados:
+   - Você NÃO deve liberar condições faturadas a prazo, dados de pedidos internos ou informações comerciais sigilosas para números não autorizados.
+   - Você DEVE informar com cordialidade que, por segurança, os atendimentos da FarmaFlow são vinculados ao CNPJ da farmácia/drogaria e que este número ainda não consta como telefone autorizado no cadastro de clientes.
+   - Solicite que o cliente informe o CNPJ da farmácia/drogaria para checagem cadastral no sistema.
+   - Se o usuário informar o CNPJ (com ou sem pontuação), utilize IMEDIATAMENTE a ferramenta 'verificar_cnpj_autorizacao' passando o CNPJ informado.
+   - Se a ferramenta retornar que a empresa existe mas o telefone não está autorizado, oriente-o a solicitar ao responsável da farmácia ou ao Emmanuel Marcarini (55 28 99943-9677) a inclusão do número na lista de telefones autorizados no CRM.
+   - Se a ferramenta retornar que o CNPJ não existe, informe educadamente e oriente-o a iniciar o credenciamento com Emmanuel Marcarini (55 28 99943-9677).
+3. Seja sempre prestativo, educado e seguro. NUNCA revele dados de outros clientes.
+
+{$customRulesPrompt}
+PROMPT;
+            }
         }
 
         // 4. Execução da IA com Google Gemini (com fallback inteligente)
@@ -513,33 +545,78 @@ PROMPT;
     {
         $contact = $conversation->contact;
         $company = $contact?->company;
+        $isAuthorized = $contact && !empty($contact->company_id) && $contact->isAuthorizedForCompany();
         $lower = mb_strtolower(trim($userMessage), 'UTF-8');
         $clean = preg_replace('/[?!.,]/', '', $lower);
 
-        // 1. Pergunta sobre se é robô / IA
-        if (str_contains($clean, 'robo') || str_contains($clean, 'robô') || str_contains($clean, 'humano') || str_contains($clean, 'inteligencia artificial') || str_contains($clean, 'você é ia')) {
-            return "Opa, sou o assistente digital da FarmaFlow, equipe do Emmanuel Marcarini! Estou aqui para te passar preços de fábrica e condições especiais rapidinho no WhatsApp. Como posso te ajudar?";
+        // 1. Extração de CNPJ da mensagem (caso o usuário tenha informado um CNPJ)
+        if (preg_match('/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/', $userMessage, $cnpjMatches) || preg_match('/\b\d{14}\b/', $userMessage, $cnpjMatches)) {
+            $cnpjToCheck = $cnpjMatches[0];
+            $cnpjRes = $this->tools->executeTool('verificar_cnpj_autorizacao', ['cnpj' => $cnpjToCheck], $contact, $company, $conversation);
+            return $cnpjRes['mensagem'] ?? "Verificação de CNPJ realizada com sucesso.";
         }
 
-        // 2. Qual o seu nome / Saudações
+        // 2. Se o contato NÃO for autorizado para nenhum CNPJ:
+        if (!$isAuthorized) {
+            $phoneFmt = $contact?->phone ?? '';
+
+            // Pergunta sobre ser robô / quem é você
+            if (str_contains($clean, 'robo') || str_contains($clean, 'robô') || str_contains($clean, 'humano') || str_contains($clean, 'ia') || str_contains($clean, 'quem e voce') || str_contains($clean, 'quem é você')) {
+                return "Olá! Sou o assistente comercial digital da FarmaFlow, equipe do Emmanuel Marcarini! Para podermos liberar cotações e faturamento, preciso verificar o cadastro da sua farmácia. Qual o CNPJ da sua empresa?";
+            }
+
+            // Pedido de atendimento humano
+            if (str_contains($clean, 'humano') || str_contains($clean, 'atendente') || str_contains($clean, 'emmanuel') || str_contains($clean, 'falar com')) {
+                $this->tools->executeTool('transferir_para_humano', ['motivo' => 'Contato não autorizado solicitou atendimento humano'], $contact, $company, $conversation);
+                return "Perfeito! Já avisei a nossa equipe e o Emmanuel Marcarini (55 28 99943-9677) vai te responder pessoalmente por aqui para verificar seu cadastro e autorizar seu número.";
+            }
+
+            // Pergunta sobre produtos/preços/catálogo
+            if (str_contains($clean, 'dipiro') || str_contains($clean, 'tadala') || str_contains($clean, 'amoxi') || str_contains($clean, 'preco') || str_contains($clean, 'preço') || str_contains($clean, 'valor') || str_contains($clean, 'catalogo') || str_contains($clean, 'catálogo') || str_contains($clean, 'tem ')) {
+                return "Trabalhamos com uma linha completa de medicamentos para farmácias e drogarias com faturamento direto de distribuidora!\n\nPorém, para consultar tabela de preços, aplicar descontos de faturamento e gerar cotações, precisamos checar o cadastro da sua empresa no nosso CRM. O seu telefone ({$phoneFmt}) ainda não consta na lista de telefones autorizados de nenhum CNPJ.\n\nPor favor, *informe o CNPJ da sua farmácia* para checagem cadastral, ou solicite ao Emmanuel Marcarini (55 28 99943-9677) a liberação do seu número.";
+            }
+
+            // Saudação ou mensagem genérica
+            $hora = (int) now()->format('H');
+            $saudacao = $hora < 12 ? 'Bom dia' : ($hora < 18 ? 'Boa tarde' : 'Boa noite');
+            return "{$saudacao}! Sou o assistente comercial da FarmaFlow.\n\nPor segurança e conformidade cadastral, nossos atendimentos comerciais e cotações são exclusivos para farmácias e drogarias com CNPJ ativo e telefones autorizados no CRM. O seu telefone ({$phoneFmt}) ainda não está vinculado a um CNPJ autorizado.\n\nPor favor, *informe o CNPJ da sua farmácia* para que eu possa verificar o seu cadastro, ou solicite ao gestor Emmanuel Marcarini (55 28 99943-9677) a inclusão do seu número na lista autorizada.";
+        }
+
+        // =========================================================================
+        // CONTATO AUTORIZADO (Vinculado a um CNPJ ativo no CRM):
+        // =========================================================================
+        $companyName = $company->trade_name ?? $company->name;
+        $companyDoc = $company->document ?? 'Não informado';
+
+        // Regra de Isolamento estrito: se perguntar sobre outros clientes/concorrentes
+        if (str_contains($clean, 'outro cliente') || str_contains($clean, 'outra farmacia') || str_contains($clean, 'outra farmácia') || str_contains($clean, 'concorrente') || str_contains($clean, 'outras empresas')) {
+            return "Por política estrita de privacidade e conformidade da FarmaFlow, os dados de faturamento, pedidos e condições comerciais de cada CNPJ são estritamente sigilosos. Estou à disposição para atender com exclusividade a {$companyName} (CNPJ: {$companyDoc})! Como posso te ajudar hoje?";
+        }
+
+        // Pergunta sobre se é robô / IA
+        if (str_contains($clean, 'robo') || str_contains($clean, 'robô') || str_contains($clean, 'humano') || str_contains($clean, 'inteligencia artificial') || str_contains($clean, 'você é ia')) {
+            return "Opa, sou o assistente comercial digital da FarmaFlow! Atendo a equipe da {$companyName} para agilizar cotações, preços especiais e pedidos com entrega rápida. Como posso te ajudar?";
+        }
+
+        // Qual o seu nome / Saudações
         if (str_contains($clean, 'qual seu nome') || str_contains($clean, 'quem é você') || str_contains($clean, 'quem e voce')) {
-            return "Sou o assistente comercial digital da FarmaFlow! Atendo junto com o Emmanuel Marcarini para agilizar suas cotações e pedidos de medicamentos.";
+            return "Sou o assistente comercial da FarmaFlow! Atendo exclusivamente a {$companyName} (CNPJ: {$companyDoc}) em cotações e pedidos de medicamentos.";
         }
 
         if (str_contains($clean, 'boa noite') || str_contains($clean, 'boa noote') || str_contains($clean, 'bom dia') || str_contains($clean, 'boa tarde') || $clean === 'ola' || $clean === 'olá' || $clean === 'oi') {
             $hora = (int) now()->format('H');
             $saudacao = $hora < 12 ? 'Bom dia' : ($hora < 18 ? 'Boa tarde' : 'Boa noite');
-            return "{$saudacao}! Tudo bem? Sou o assistente comercial da FarmaFlow. Consigo consultar preços atualizados, verificar descontos por quantidade e montar sua cotação rápida. Qual produto você procura hoje?";
+            return "{$saudacao}! Tudo bem? Sou o assistente comercial da FarmaFlow atendendo a *{$companyName}*. Consigo consultar preços atualizados, promoções por volume e gerar sua cotação rápida. Qual medicamento você precisa hoje?";
         }
 
-        // 3. "O que tem disponível?" / Catálogo / Lista de produtos
+        // "O que tem disponível?" / Catálogo / Lista de produtos
         if (str_contains($clean, 'disponivel') || str_contains($clean, 'disponível') || str_contains($clean, 'o que tem') || str_contains($clean, 'catalogo') || str_contains($clean, 'catálogo') || str_contains($clean, 'produtos')) {
             $prods = \App\Models\Product::where('is_active', true)->take(6)->get();
             $list = $prods->map(fn($p) => "• *{$p->name}* ({$p->presentation})")->implode("\n");
-            return "Trabalhamos com medicamentos de alta rotatividade com condições especiais por quantidade! Alguns dos itens disponíveis:\n\n{$list}\n\nQual deles você gostaria de cotar hoje?";
+            return "Temos medicamentos de alta rotatividade com condições exclusivas para a *{$companyName}*! Alguns dos itens disponíveis:\n\n{$list}\n\nQual deles você gostaria de cotar hoje?";
         }
 
-        // 4. Busca de produto ou cotação de produto
+        // Busca de produto ou cotação de produto
         $searchRes = $this->tools->executeTool('buscar_produto', ['termo' => $userMessage]);
         if (!empty($searchRes['products'])) {
             $prod = $searchRes['products'][0];
@@ -556,32 +633,32 @@ PROMPT;
             $totalFormatted = number_format($priceRes['total_amount'], 2, ',', '.');
 
             if ($qty > 1) {
-                $reply = "Opa! Para {$qty} caixas de *{$prod['nome']}*, o valor fica em *R$ {$unitFormatted}* a unidade (Total: R$ {$totalFormatted}).";
+                $reply = "Opa! Para {$qty} caixas de *{$prod['nome']}*, o valor especial para {$companyName} fica em *R$ {$unitFormatted}* a unidade (Total: R$ {$totalFormatted}).";
                 if ($priceRes['condition_source'] === 'campaign') {
-                    $reply .= " 🏷️ (Preço especial de campanha aplicado!)";
+                    $reply .= " 🏷️ (Preço de campanha aplicado!)";
                 } elseif ($priceRes['condition_source'] === 'tier_price') {
                     $reply .= " 📦 (Desconto por volume aplicado!)";
                 }
-                $reply .= "\n\nPosso gerar a cotação formal para você?";
+                $reply .= "\n\nPosso gerar a cotação formal para o CNPJ {$companyDoc}?";
                 return $reply;
             } else {
                 $baseFormatted = number_format($prod['preco_base'], 2, ',', '.');
-                return "Temos sim! *{$prod['nome']}* ({$prod['apresentacao']}). Preço base de tabela: R$ {$baseFormatted} a caixa.\n\nPara compras em volume acima de 10 ou 50 caixas temos faixas com desconto progressivo! Quantas caixas você precisa?";
+                return "Temos sim para a {$companyName}! *{$prod['nome']}* ({$prod['apresentacao']}). Preço base de tabela: R$ {$baseFormatted} a caixa.\n\nPara compras em volume acima de 10 ou 50 caixas temos descontos progressivos! Quantas caixas você precisa?";
             }
         }
 
-        // 5. Transferência para humano solicitada
+        // Transferência para humano solicitada
         if (str_contains($clean, 'humano') || str_contains($clean, 'atendente') || str_contains($clean, 'vendedor') || str_contains($clean, 'falar com')) {
             $this->tools->executeTool('transferir_para_humano', ['motivo' => 'Solicitação do cliente'], $contact, $company, $conversation);
-            return "Com certeza! Já avisei a nossa equipe e o Emmanuel Marcarini vai te responder pessoalmente por aqui em instantes.";
+            return "Com certeza! Já notifiquei o Emmanuel Marcarini e ele entrará em contato com a {$companyName} por aqui em instantes.";
         }
 
-        // 6. Produto procurado não encontrado
+        // Produto procurado não encontrado
         if (str_contains($clean, 'tem ') || str_contains($clean, 'voce tem') || str_contains($clean, 'você tem')) {
-            return "No momento não temos esse item específico em estoque. Temos disponível pronta-entrega: *Dipirona 500mg, Amoxicilina 875mg, Omeprazol 20mg, Losartana 50mg, Paracetamol 750mg e Tadalafila 20mg*. Gostaria de cotar algum desses?";
+            return "No momento não temos esse item específico em estoque. Temos pronta-entrega para {$companyName}: *Dipirona 500mg, Amoxicilina 875mg, Omeprazol 20mg, Losartana 50mg, Paracetamol 750mg e Tadalafila 20mg*. Gostaria de cotar algum desses?";
         }
 
-        return "Opa, tudo bem? Consigo consultar preços atualizados, promoções por quantidade e montar cotações rápidas para você na FarmaFlow. Qual medicamento você gostaria de cotar?";
+        return "Opa, tudo bem? Consigo consultar preços atualizados, promoções por quantidade e montar cotações rápidas para a *{$companyName}*. Qual medicamento você gostaria de cotar?";
     }
 
     /**

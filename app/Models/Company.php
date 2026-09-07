@@ -40,6 +40,11 @@ class Company extends Model
         return $this->hasMany(Contact::class);
     }
 
+    public function authorizedContacts(): HasMany
+    {
+        return $this->hasMany(Contact::class)->where('is_authorized', true);
+    }
+
     public function primaryContact(): HasOne
     {
         return $this->hasOne(Contact::class)->where('is_primary', true);

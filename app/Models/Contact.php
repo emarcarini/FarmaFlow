@@ -21,6 +21,7 @@ class Contact extends Model
         'phone',
         'email',
         'is_primary',
+        'is_authorized',
         'notes',
     ];
 
@@ -28,7 +29,13 @@ class Contact extends Model
     {
         return [
             'is_primary' => 'boolean',
+            'is_authorized' => 'boolean',
         ];
+    }
+
+    public function isAuthorizedForCompany(): bool
+    {
+        return !empty($this->company_id) && ($this->is_authorized ?? true);
     }
 
     public function company(): BelongsTo
