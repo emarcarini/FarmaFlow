@@ -83,12 +83,5 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/regras/{rule}', [\App\Http\Controllers\Portal\BotSettingsController::class, 'updateRule'])->name('portal.bot.rules.update');
     Route::delete('/regras/{rule}', [\App\Http\Controllers\Portal\BotSettingsController::class, 'destroyRule'])->name('portal.bot.rules.destroy');
 
-    // 10. Módulo Administrativo (Apenas Admin)
-    Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/representantes', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'index'])->name('representatives.index');
-        Route::post('/representantes', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'store'])->name('representatives.store');
-        Route::put('/representantes/{representative}', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'update'])->name('representatives.update');
-        Route::post('/representantes/{representative}/toggle', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'toggleStatus'])->name('representatives.toggle');
-        Route::delete('/representantes/{representative}', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'destroy'])->name('representatives.destroy');
-    });
 });
+
