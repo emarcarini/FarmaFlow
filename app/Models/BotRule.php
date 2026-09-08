@@ -12,6 +12,9 @@ class BotRule extends Model
     protected $fillable = [
         'title',
         'content',
+        'category',
+        'is_preset',
+        'representative_id',
         'is_active',
         'priority',
     ];
@@ -20,7 +23,33 @@ class BotRule extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_preset' => 'boolean',
             'priority' => 'integer',
         ];
+    }
+
+    public function representative()
+    {
+        return $this->belongsTo(Representative::class);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    public function scopePreset($query)
+    {
+        return $query->where('is_preset', true);
+    }
+
+    public function scopeCustom($query)
+    {
+        return $query->where('is_preset', false);
+    }
+
+    public function scopeByCategory($query, string $category)
+    {
+        return $query->where('category', $category);
     }
 }

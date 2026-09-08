@@ -196,14 +196,30 @@
                     </div>
 
                     <div>
-                        <span class="px-3 text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">Documentação & IA</span>
+                        <span class="px-3 text-[11px] font-bold tracking-wider text-slate-400 dark:text-slate-500 uppercase">Inteligência Artificial & Robô</span>
                         <nav class="mt-2 space-y-1">
+                            <a href="{{ route('portal.bot.settings') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-sm font-medium transition-all group {{ request()->routeIs('portal.bot.settings*') ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50' }}">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="sliders" class="w-4 h-4 {{ request()->routeIs('portal.bot.settings*') ? 'text-white' : 'text-indigo-500 dark:text-indigo-400' }}"></i>
+                                    <span>Configurações do Robô</span>
+                                </div>
+                                <span class="px-1.5 py-0.5 text-[10px] font-mono rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">Delay & IA</span>
+                            </a>
+
+                            <a href="{{ route('portal.bot.rules') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-sm font-medium transition-all group {{ request()->routeIs('portal.bot.rules*') ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50' }}">
+                                <div class="flex items-center gap-3">
+                                    <i data-lucide="sparkles" class="w-4 h-4 {{ request()->routeIs('portal.bot.rules*') ? 'text-white' : 'text-emerald-500 dark:text-emerald-400' }}"></i>
+                                    <span>Regras de Atendimento</span>
+                                </div>
+                                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">80+</span>
+                            </a>
+
                             <a href="{{ route('portal.docs') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-sm font-medium transition-all group {{ request()->routeIs('portal.docs*') ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50' }}">
                                 <div class="flex items-center gap-3">
-                                    <i data-lucide="book-open" class="w-4 h-4 {{ request()->routeIs('portal.docs*') ? 'text-white' : 'text-indigo-500 dark:text-indigo-400' }}"></i>
+                                    <i data-lucide="book-open" class="w-4 h-4 {{ request()->routeIs('portal.docs*') ? 'text-white' : 'text-slate-400' }}"></i>
                                     <span>Central de Docs</span>
                                 </div>
-                                <span class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/20 dark:border-indigo-500/30">Manual</span>
+                                <span class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-slate-500/10 text-slate-400 border border-slate-500/20">Manual</span>
                             </a>
                         </nav>
                     </div>

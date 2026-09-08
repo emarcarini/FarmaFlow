@@ -103,11 +103,27 @@ class EvolutionWebhookHandler
             return ['status' => 'chats_event_received'];
         }
 
-        // Filtrar apenas mensagens de entrada (inbound)
-        $messageKey = $data['key'] ?? [];
-        $fromMe = $messageKey['fromMe'] ?? ($data['fromMe'] ?? false);
-
         if ($fromMe) {
+            // Se o representante/admin enviou mensagem manual pelo WhatsApp do celular, verificar auto-pause
+            try {
+                $remoteJid = $messageKey['remoteJid'] ?? ($data['sender'] ?? ($data['remoteJid'] ?? ''));
+                $recipientPhone = preg_replace('/\D+/', '', explode('@', $remoteJid)[0]);
+                if (!empty($recipientPhone) && !self::isAdminPhone($recipientPhone)) {
+                    $contact = Contact::where('phone', $recipientPhone)
+                        ->orWhere('phone', 'like', '%' . substr($recipientPhone, -8))
+                        ->first();
+                    if ($contact && \App\Models\BotSetting::get('auto_pause_on_human_reply', true)) {
+                        $conv = Conversation::where('contact_id', $contact->id)->where('channel', 'whatsapp')->first();
+                        if ($conv && !$conv->isHumanTakeover()) {
+                            $conv->triggerHandover('Representante enviou mensagem manual pelo WhatsApp');
+                            Log::info("Conversa #{$conv->id} pausada automaticamente pelo envio manual do representante no celular.");
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Silêncio em falha de detecção
+            }
+
             return ['status' => 'ignored_outbound'];
         }
 
@@ -254,10 +270,15 @@ class EvolutionWebhookHandler
             return ['status' => 'opted_out_ignored'];
         }
 
-        // 6. Se a conversa estiver em atendimento humano, apenas registrar a mensagem (exceto se for o Admin conversando com o Bot)
+        // 6. Se a conversa estiver em atendimento humano, verificar se o tempo de silêncio expirou para retomar
         if (!$isAdmin && $conversation->isHumanTakeover()) {
-            Log::info("Conversa {$conversation->id} em atendimento humano. Mensagem salva.");
-            return ['status' => 'human_takeover_recorded'];
+            if ($conversation->shouldAutoResume()) {
+                $conversation->resumeAi();
+                Log::info("Conversa #{$conversation->id} retomada automaticamente após expiração do tempo de silêncio humano.");
+            } else {
+                Log::info("Conversa #{$conversation->id} em atendimento humano. Mensagem salva.");
+                return ['status' => 'human_takeover_recorded'];
+            }
         }
 
         // 7. Chamar Agente de IA Comercial / Copiloto Admin

@@ -80,6 +80,16 @@ class Conversation extends Model
         ]);
     }
 
+    public function shouldAutoResume(): bool
+    {
+        if (!$this->isHumanTakeover()) {
+            return false;
+        }
+
+        $durationMinutes = (int) \App\Models\BotSetting::get('pause_duration_minutes', 120);
+        return $this->handover_at && $this->handover_at->addMinutes($durationMinutes)->isPast();
+    }
+
     public function isArchived(): bool
     {
         return (bool) $this->is_archived;

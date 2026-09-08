@@ -74,7 +74,16 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/whatsapp/sync-webhooks', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'syncWebhooks'])->name('portal.whatsapp.sync');
     Route::post('/whatsapp/delete-instance', [\App\Http\Controllers\Portal\WhatsAppConnectionController::class, 'deleteOrphanInstance'])->name('portal.whatsapp.delete-instance');
 
-    // 9. Módulo Administrativo (Apenas Admin)
+    // 9. Configurações & Regras do Robô IA
+    Route::get('/configuracoes/bot', [\App\Http\Controllers\Portal\BotSettingsController::class, 'indexSettings'])->name('portal.bot.settings');
+    Route::post('/configuracoes/bot', [\App\Http\Controllers\Portal\BotSettingsController::class, 'updateSettings'])->name('portal.bot.settings.update');
+    Route::get('/regras', [\App\Http\Controllers\Portal\BotSettingsController::class, 'indexRules'])->name('portal.bot.rules');
+    Route::post('/regras', [\App\Http\Controllers\Portal\BotSettingsController::class, 'storeRule'])->name('portal.bot.rules.store');
+    Route::patch('/regras/{rule}/toggle', [\App\Http\Controllers\Portal\BotSettingsController::class, 'toggleRule'])->name('portal.bot.rules.toggle');
+    Route::put('/regras/{rule}', [\App\Http\Controllers\Portal\BotSettingsController::class, 'updateRule'])->name('portal.bot.rules.update');
+    Route::delete('/regras/{rule}', [\App\Http\Controllers\Portal\BotSettingsController::class, 'destroyRule'])->name('portal.bot.rules.destroy');
+
+    // 10. Módulo Administrativo (Apenas Admin)
     Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/representantes', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'index'])->name('representatives.index');
         Route::post('/representantes', [\App\Http\Controllers\Portal\RepresentativeAdminController::class, 'store'])->name('representatives.store');

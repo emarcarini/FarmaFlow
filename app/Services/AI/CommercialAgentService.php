@@ -127,13 +127,21 @@ PROMPT;
             try {
                 $activeRules = \App\Models\BotRule::where('is_active', true)->orderBy('priority', 'asc')->get();
                 if ($activeRules->isNotEmpty()) {
-                    $customRulesPrompt = "REGRAS E INSTRUÇÕES ESPECÍFICAS CADASTRADAS PELO GESTOR (SIGA RIGOROSAMENTE):\n";
+                    $customRulesPrompt = "REGRAS E DIRETRIZES DE ATENDIMENTO ATIVAS (SIGA RIGOROSAMENTE):\n";
                     foreach ($activeRules as $idx => $r) {
                         $num = $idx + 1;
                         $titlePrefix = $r->title ? "[{$r->title}] " : "";
                         $customRulesPrompt .= "{$num}. {$titlePrefix}{$r->content}\n";
                     }
                 }
+
+                $prohibitedWords = \App\Models\BotSetting::get('prohibited_words', '');
+                if (!empty($prohibitedWords)) {
+                    $customRulesPrompt .= "\nTERMOS E PALAVRAS ESTRITAMENTE PROIBIDAS (NUNCA UTILIZE): {$prohibitedWords}\n";
+                }
+
+                $maxDiscount = \App\Models\BotSetting::get('max_autonomous_discount_pct', 5.0);
+                $customRulesPrompt .= "\nLIMITE MÁXIMO DE DESCONTO AUTÔNOMO: {$maxDiscount}%. Acima disso, oriente o cliente a falar com Emmanuel Marcarini.\n";
             } catch (\Throwable $e) {
                 // Caso tabela não exista
             }
@@ -690,7 +698,57 @@ PROMPT;
                 
                 if (!empty($instance)) {
                     $this->whatsappService->setInstance($instance);
-                    $this->whatsappService->sendTextMessage($conversation->contact->phone, $content);
+
+                    // 1. Simulação Humana de Digitação com Delay Aleatório (padrão 5s a 30s)
+                    $typingEnabled = \App\Models\BotSetting::get('typing_delay_enabled', true);
+                    if ($typingEnabled && config('app.env') !== 'testing') {
+                        @set_time_limit(120);
+                        $minDelay = (int) \App\Models\BotSetting::get('typing_delay_min', 5);
+                        $maxDelay = (int) \App\Models\BotSetting::get('typing_delay_max', 30);
+                        if ($minDelay > $maxDelay) {
+                            $minDelay = 5;
+                            $maxDelay = 30;
+                        }
+                        $delaySeconds = rand($minDelay, $maxDelay);
+
+                        // Ativa status "digitando..." no WhatsApp do cliente
+                        $this->whatsappService->sendPresence($conversation->contact->phone, 'composing');
+
+                        // Aguarda o período aleatório sorteado
+                        sleep($delaySeconds);
+                    }
+
+                    // 2. Divisão de Mensagens Longas em Blocos Naturais
+                    $splitEnabled = \App\Models\BotSetting::get('split_long_messages', true);
+                    if ($splitEnabled && mb_strlen($content) > 350 && str_contains($content, "\n\n")) {
+                        $paragraphs = array_filter(array_map('trim', explode("\n\n", $content)));
+                        $chunks = [];
+                        $currentChunk = '';
+                        foreach ($paragraphs as $p) {
+                            if (mb_strlen($currentChunk . "\n\n" . $p) > 350 && !empty($currentChunk)) {
+                                $chunks[] = trim($currentChunk);
+                                $currentChunk = $p;
+                            } else {
+                                $currentChunk = empty($currentChunk) ? $p : $currentChunk . "\n\n" . $p;
+                            }
+                        }
+                        if (!empty($currentChunk)) {
+                            $chunks[] = trim($currentChunk);
+                        }
+
+                        foreach ($chunks as $idx => $chunk) {
+                            if ($idx > 0 && config('app.env') !== 'testing') {
+                                $this->whatsappService->sendPresence($conversation->contact->phone, 'composing');
+                                sleep(rand(2, 4));
+                            }
+                            $this->whatsappService->sendTextMessage($conversation->contact->phone, $chunk);
+                        }
+                    } else {
+                        $this->whatsappService->sendTextMessage($conversation->contact->phone, $content);
+                    }
+
+                    // Finaliza status de presença
+                    $this->whatsappService->sendPresence($conversation->contact->phone, 'paused');
                 } else {
                     Log::warning("Instância WhatsApp não identificada para envio na conversa #{$conversation->id}");
                 }
