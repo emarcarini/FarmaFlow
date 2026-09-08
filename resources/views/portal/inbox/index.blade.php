@@ -28,11 +28,11 @@
                 <!-- Action Icons (WhatsApp Web Style) -->
                 <div class="flex items-center gap-1.5">
                     <!-- Botão: Regras do Bot IA -->
-                    <button type="button" onclick="openBotRulesModal()" title="Instruções & Regras do Bot IA"
+                    <a href="{{ route('portal.bot.rules') }}" title="Instruções & Regras do Bot IA"
                         class="p-2 rounded-xl text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/50 transition-all flex items-center gap-1 text-xs font-bold shadow-sm">
                         <i data-lucide="sparkles" class="w-4 h-4"></i>
                         <span class="hidden sm:inline">Regras IA</span>
-                    </button>
+                    </a>
 
                     <!-- Botão: Contatos (Nova Conversa) -->
                     <button type="button" onclick="openContactsModal()" title="Abrir Lista de Contatos / Nova Conversa"
@@ -345,10 +345,10 @@
                             <span>Abrir Lista de Contatos</span>
                         </button>
 
-                        <button type="button" onclick="openBotRulesModal()" class="px-5 py-2.5 rounded-2xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 font-bold text-xs transition-all flex items-center gap-2">
+                        <a href="{{ route('portal.bot.rules') }}" class="px-5 py-2.5 rounded-2xl bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 font-bold text-xs transition-all flex items-center gap-2">
                             <i data-lucide="sparkles" class="w-4 h-4"></i>
                             <span>Regras da IA</span>
-                        </button>
+                        </a>
                     </div>
 
                     <div class="pt-8 text-[11px] text-slate-400 dark:text-[#667781] flex items-center gap-1.5 border-t border-slate-200 dark:border-slate-800/60 max-w-xs">
@@ -680,7 +680,7 @@
             msgContainer.scrollTop = msgContainer.scrollHeight;
         }
 
-        // Auto-refresh suave da conversa aberta a cada 5 segundos
+        // Auto-refresh suave da conversa aberta e lista lateral a cada 3 segundos
         setInterval(() => {
             const inputField = document.getElementById('msg-input');
             if (inputField && document.activeElement === inputField && inputField.value.trim() !== '') {
@@ -695,17 +695,28 @@
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
 
-                // Atualiza mensagens
+                // Atualiza mensagens da conversa atual
                 const newMessages = doc.getElementById('messages-container');
                 const curMessages = document.getElementById('messages-container');
                 if (newMessages && curMessages && newMessages.innerHTML !== curMessages.innerHTML) {
+                    const shouldScroll = curMessages.scrollTop + curMessages.clientHeight >= curMessages.scrollHeight - 100;
                     curMessages.innerHTML = newMessages.innerHTML;
-                    curMessages.scrollTop = curMessages.scrollHeight;
+                    if (shouldScroll) {
+                        curMessages.scrollTop = curMessages.scrollHeight;
+                    }
+                    lucide.createIcons();
+                }
+
+                // Atualiza lista lateral de conversas
+                const newLeft = doc.getElementById('conversations-list-container');
+                const curLeft = document.getElementById('conversations-list-container');
+                if (newLeft && curLeft && newLeft.innerHTML !== curLeft.innerHTML) {
+                    curLeft.innerHTML = newLeft.innerHTML;
                     lucide.createIcons();
                 }
             })
             .catch(() => {});
-        }, 5000);
+        }, 3000);
     });
 </script>
 @endsection

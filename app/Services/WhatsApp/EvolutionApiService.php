@@ -103,19 +103,31 @@ class EvolutionApiService
             return $customUrl;
         }
 
-        // 2. Se a URL da Evolution API for interna no Docker (ex: http://evolution-api:8080),
-        // o webhook DEVE ser o nome do container da aplicação (http://app/api/v1/webhooks/evolution)
-        // para garantir comunicação direta em rede interna sem depender de DNS externo ou Hairpin NAT.
-        if (str_contains($this->baseUrl, 'evolution-api') || str_contains($this->baseUrl, 'localhost') || str_contains($this->baseUrl, '127.0.0.1')) {
-            return 'http://app/api/v1/webhooks/evolution';
-        }
-
+        // 2. Se a aplicação tiver APP_URL pública configurada (diferente de localhost), usa ela prioritariamente
         $appUrl = config('app.url') ?: env('APP_URL');
-        if (!empty($appUrl) && !str_contains($appUrl, 'localhost')) {
+        if (!empty($appUrl) && !str_contains($appUrl, 'localhost') && !str_contains($appUrl, '127.0.0.1')) {
             return rtrim($appUrl, '/') . '/api/v1/webhooks/evolution';
         }
 
-        return 'http://app/api/v1/webhooks/evolution';
+        // 3. Se a URL da Evolution API for interna no Docker (ex: http://evolution-api:8080),
+        // o webhook usa o container de rede da aplicação (http://app/api/v1/webhooks/evolution)
+        if (str_contains($this->baseUrl, 'evolution-api')) {
+            return 'http://app/api/v1/webhooks/evolution';
+        }
+
+        // 4. Se estiver em requisição HTTP web ativa com domínio real
+        if (!app()->runningInConsole()) {
+            try {
+                $root = request()->root();
+                if (!empty($root) && !str_contains($root, 'localhost') && !str_contains($root, '127.0.0.1')) {
+                    return rtrim($root, '/') . '/api/v1/webhooks/evolution';
+                }
+            } catch (\Throwable $e) {
+                // Silêncio se não houver contexto HTTP
+            }
+        }
+
+        return rtrim($appUrl ?: 'http://localhost:8000', '/') . '/api/v1/webhooks/evolution';
     }
 
     /**

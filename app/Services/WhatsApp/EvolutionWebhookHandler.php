@@ -33,6 +33,10 @@ class EvolutionWebhookHandler
             $data = $data[0];
         }
 
+        // Extrair chave e flags da mensagem
+        $messageKey = $data['key'] ?? [];
+        $fromMe = (bool) ($messageKey['fromMe'] ?? ($data['fromMe'] ?? false));
+
         $instanceName = $payload['instance'] ?? ($data['instance'] ?? ($payload['owner'] ?? config('services.evolution.instance', 'farmaflow')));
         if (empty($instanceName)) {
             $instanceName = 'farmaflow';
@@ -104,24 +108,55 @@ class EvolutionWebhookHandler
         }
 
         if ($fromMe) {
-            // Se o representante/admin enviou mensagem manual pelo WhatsApp do celular, verificar auto-pause
+            // Se o representante/admin enviou mensagem manual pelo WhatsApp do celular, registrar e verificar auto-pause
             try {
                 $remoteJid = $messageKey['remoteJid'] ?? ($data['sender'] ?? ($data['remoteJid'] ?? ''));
-                $recipientPhone = preg_replace('/\D+/', '', explode('@', $remoteJid)[0]);
-                if (!empty($recipientPhone) && !self::isAdminPhone($recipientPhone)) {
+                $rawJid = explode('@', $remoteJid)[0];
+                $rawJid = explode(':', $rawJid)[0];
+                $recipientPhone = preg_replace('/\D+/', '', $rawJid);
+                $messageId = $messageKey['id'] ?? ($data['messageId'] ?? ($data['id'] ?? null));
+
+                if (!empty($recipientPhone)) {
                     $contact = Contact::where('phone', $recipientPhone)
                         ->orWhere('phone', 'like', '%' . substr($recipientPhone, -8))
                         ->first();
-                    if ($contact && \App\Models\BotSetting::get('auto_pause_on_human_reply', true)) {
-                        $conv = Conversation::where('contact_id', $contact->id)->where('channel', 'whatsapp')->first();
-                        if ($conv && !$conv->isHumanTakeover()) {
-                            $conv->triggerHandover('Representante enviou mensagem manual pelo WhatsApp');
-                            Log::info("Conversa #{$conv->id} pausada automaticamente pelo envio manual do representante no celular.");
+
+                    if ($contact) {
+                        $conv = Conversation::firstOrCreate(
+                            ['contact_id' => $contact->id, 'channel' => 'whatsapp'],
+                            ['representative_id' => $targetRep?->id, 'status' => 'ai_handling', 'last_message_at' => now()]
+                        );
+
+                        if ($messageId && !Message::where('external_id', $messageId)->exists()) {
+                            $messageObj = $data['message'] ?? [];
+                            $outboundText = $messageObj['conversation']
+                                ?? ($messageObj['extendedTextMessage']['text']
+                                ?? ($data['text'] ?? ''));
+
+                            if (!empty(trim((string) $outboundText))) {
+                                Message::create([
+                                    'conversation_id' => $conv->id,
+                                    'direction' => 'outbound',
+                                    'external_id' => $messageId,
+                                    'sender_type' => 'representative',
+                                    'content' => $outboundText,
+                                    'message_type' => 'text',
+                                    'status' => 'sent',
+                                ]);
+                                $conv->update(['last_message_at' => now()]);
+                            }
+                        }
+
+                        if (!self::isAdminPhone($recipientPhone) && \App\Models\BotSetting::get('auto_pause_on_human_reply', true)) {
+                            if (!$conv->isHumanTakeover()) {
+                                $conv->triggerHandover('Representante enviou mensagem manual pelo WhatsApp');
+                                Log::info("Conversa #{$conv->id} pausada automaticamente pelo envio manual do representante no celular.");
+                            }
                         }
                     }
                 }
             } catch (\Throwable $e) {
-                // Silêncio em falha de detecção
+                Log::warning("Falha ao sincronizar outbound manual: " . $e->getMessage());
             }
 
             return ['status' => 'ignored_outbound'];
@@ -136,10 +171,17 @@ class EvolutionWebhookHandler
             $remoteJid = $senderPn;
         }
 
-        $phone = preg_replace('/\D+/', '', explode('@', $remoteJid)[0]);
+        // Ignora grupos e transmissões do WhatsApp
+        if (str_contains($remoteJid, '@g.us') || str_contains($remoteJid, '@broadcast')) {
+            return ['status' => 'ignored_group_or_broadcast'];
+        }
 
-        if (empty($phone)) {
-            Log::warning("Webhook Evolution: RemoteJid/Telefone vazio no payload", ['data' => $data]);
+        $rawJid = explode('@', $remoteJid)[0];
+        $rawJid = explode(':', $rawJid)[0];
+        $phone = preg_replace('/\D+/', '', $rawJid);
+
+        if (empty($phone) || strlen($phone) < 8) {
+            Log::warning("Webhook Evolution: RemoteJid/Telefone vazio ou inválido no payload", ['remoteJid' => $remoteJid, 'data' => $data]);
             return ['status' => 'invalid_phone'];
         }
 
@@ -219,6 +261,11 @@ class EvolutionWebhookHandler
             // Se for admin, garante que a conversa está ativa para IA responder o admin
             if ($isAdmin && $conversation->isHumanTakeover()) {
                 $conversation->update(['status' => 'ai_handling']);
+            }
+
+            // Se a conversa estava arquivada, desarquiva automaticamente com a nova mensagem
+            if ($conversation->is_archived) {
+                $conversation->unarchive();
             }
 
             $inboundMessage = Message::create([
