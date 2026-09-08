@@ -133,24 +133,6 @@
 
                 <!-- Navigation Section -->
                 <div class="flex-1 overflow-y-auto px-4 py-5 space-y-6">
-                    <!-- Admin Navigation Group -->
-                    @if(auth()->user()->isAdmin())
-                        <div>
-                            <span class="px-3 text-[11px] font-bold tracking-wider text-amber-600 dark:text-amber-400 uppercase flex items-center gap-1.5">
-                                <i data-lucide="shield" class="w-3.5 h-3.5"></i>
-                                <span>Administração</span>
-                            </span>
-                            <nav class="mt-2 space-y-1">
-                                <a href="{{ route('admin.representatives.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-sm font-medium transition-all group {{ request()->routeIs('admin.representatives*') ? 'bg-indigo-600 text-white font-semibold shadow-lg shadow-indigo-600/25' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/50' }}">
-                                    <div class="flex items-center gap-3">
-                                        <i data-lucide="users" class="w-4 h-4 {{ request()->routeIs('admin.representatives*') ? 'text-white' : 'text-amber-500 dark:text-amber-400 group-hover:text-slate-900 dark:group-hover:text-white' }}"></i>
-                                        <span>Representantes</span>
-                                    </div>
-                                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 border border-amber-500/20 dark:border-amber-500/30">Admin</span>
-                                </a>
-                            </nav>
-                        </div>
-                    @endif
 
                     <!-- Commercial & Sales Navigation -->
                     <div>
